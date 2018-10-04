@@ -33,3 +33,16 @@ def encode_target(examples_df, target_column):
     }
     return vectorized_data, transformers
 
+
+def top_words(model, feature_names, n_words=5):
+    """
+    Show n_words top words from topic model
+    Works for models coming from sklearn.decomposition (for example NMF and LDA)
+    """    
+
+    def top_topic_words(topic):
+        return [feature_names[i] for i in topic.argsort()[:-n_words - 1:-1]]
+    
+    topic_words_dict = {topic_idx: top_topic_words(topic) for topic_idx, topic in enumerate(model.components_)}
+    
+    return pd.DataFrame(topic_words_dict)
