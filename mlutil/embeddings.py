@@ -4,6 +4,9 @@ import gensim.downloader as gensim_data_downloader
 
 
 def load_gensim_embedding_model(model_name):
+    """
+    Load word embeddings (gensim KeyedVectors) 
+    """
     available_models = gensim_data_downloader.info()['models'].keys()
     assert model_name in available_models, 'Invalid model_name: {}. Choose one from {}'.format(model_name, ', '.join(available_models))
     
