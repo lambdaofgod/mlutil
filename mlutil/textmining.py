@@ -60,10 +60,12 @@ def top_topic_words(model, feature_names, n_words=5):
 ##################
 
 
-def get_wordnet_similarity(word, another_word, similarity_method='resnik', ic=wordnet_ic.ic('ic-semcor.dat')):
+def get_wordnet_similarity(word, another_word, similarity_method='resnik', pos=None, ic=None):
+    if ic is None:
+        ic = wordnet_ic.ic('ic-semcor.dat')
     assert similarity_method in ['lin', 'jcn', 'resnik'], 'Unsupported similarity method: ' + str(similarity_method)
-    word_synset = wn.synsets(word, wn.NOUN)[0]
-    another_word_synset = wn.synsets(another_word, wn.NOUN)[0]
+    word_synset = wn.synsets(word, pos)[0]
+    another_word_synset = wn.synsets(another_word, pos)[0]
     if similarity_method == 'lin':
         return word_synset.lin_similarity(another_word_synset, ic)
     elif similarity_method == 'jcn': 
