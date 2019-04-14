@@ -1,2 +1,5 @@
 gensim
 nltk
+pandas
+numpy
+tqdm
