@@ -31,17 +31,13 @@ def get_dominant_pos(word):
         return synsets[0].pos()
 
 
-def aggregated_similarity_measure(items, similarity, aggregation='mean'):
-    similarities = [similarity(x, y) for (x, y) in combinations(items, 2) if get_dominant_pos(x) == get_dominant_pos(y) and get_dominant_pos(x) is not None and get_dominant_pos(x) != 'a']
-    if aggregation == 'mean':
-        return sum(similarities) / len(similarities)
-    if aggregation == 'median':
-        return np.median(np.array(similarities))
-    else:
-        raise ValueError('unsupported aggregation type: "{}"'.format(aggregation))
+def aggregated_similarity_measure(items, similarity, aggregation=np.mean):
+    valid_items = [item for item in items if get_dominant_pos(item) in ['v', 'n']]
+    similarities = [similarity(x, y) for (x, y) in combinations(valid_items, 2) if get_dominant_pos(x) == get_dominant_pos(y)]
+    return aggregation(np.array(similarities))
 
 
-def calculate_mean_topic_coherence(keywords_per_topic, n_top_keywords=20, verbose=True):
+def calculate_mean_topic_coherence(keywords_per_topic, n_top_keywords=10, verbose=True):
     coherences = []
 
     for i, topic_keywords in tqdm.tqdm(enumerate(keywords_per_topic.values)):
