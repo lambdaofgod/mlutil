@@ -51,6 +51,6 @@ def get_topic_coherences(keywords_per_topic, n_used_top_keywords=10, verbose=Tru
   if verbose:
       _iter = tqdm.tqdm(_iter, total=n_topics)
   return pd.Series([
-    mlutil.topic_modeling.topic_coherence(keywords.values, n_top_keywords=n_used_top_keywords)
+    topic_coherence(keywords.values, n_top_keywords=n_used_top_keywords)
     for (__, keywords) in _iter
   ])
