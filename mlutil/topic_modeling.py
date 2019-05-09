@@ -31,19 +31,26 @@ def get_dominant_pos(word):
         return synsets[0].pos()
 
 
-def aggregated_similarity_measure(items, similarity, aggregation=np.mean):
-    valid_items = [item for item in items if get_dominant_pos(item) in ['v', 'n']]
+def aggregated_similarity_measure(items, max_items, similarity, aggregation):
+    valid_items = [item for item in items if get_dominant_pos(item) in ['v', 'n']][:max_items]
     similarities = [similarity(x, y) for (x, y) in combinations(valid_items, 2) if get_dominant_pos(x) == get_dominant_pos(y)]
     return aggregation(np.array(similarities))
 
 
-def calculate_mean_topic_coherence(keywords_per_topic, n_top_keywords=10, verbose=True):
-    coherences = []
+def topic_coherence(topic_keywords, n_top_keywords, aggregation=np.mean, similarity=get_wordnet_similarity):
+    return aggregated_similarity_measure(topic_keywords, n_top_keywords, similarity=similarity, aggregation=aggregation)
 
-    for i, topic_keywords in tqdm.tqdm(enumerate(keywords_per_topic.values)):
-        topic_keywords = list(topic_keywords)[:n_top_keywords]
-        coherence = aggregated_similarity_measure(topic_keywords, similarity=get_wordnet_similarity)
-        coherences.append(coherence)
-        if verbose:
-            print('topic', i, 'mean coherence:', coherence)
-    return sum(coherences) / len(coherences)
+
+def get_topic_coherences(keywords_per_topic, n_used_top_keywords=10, verbose=True):
+  """
+    Calculate topic coherences for `keywords_per_topic`
+    `keywords_per_topic` is expected to be of format returned from top_topic_words
+  """
+  _iter = keywords_per_topic.iterrows()
+  n_topics = keywords_per_topic.shape[0]
+  if verbose:
+      _iter = tqdm.tqdm(_iter, total=n_topics)
+  return pd.Series([
+    mlutil.topic_modeling.topic_coherence(keywords.values, n_top_keywords=n_used_top_keywords)
+    for (__, keywords) in _iter
+  ])
