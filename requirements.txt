@@ -3,3 +3,5 @@ nltk
 pandas
 numpy
 tqdm
+sklearn
+pytest
