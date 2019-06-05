@@ -45,16 +45,16 @@ class EmbeddingVectorizer(VectorizerMixin):
         Base class for word/text embedding wrappers
     """
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, **kwargs):
         analyzer = self.build_analyzer()
         analyzed_docs = [' '.join(analyzer(doc)) for doc in X]
-        return self._embed_texts(analyzed_docs)
+        return self._embed_texts(analyzed_docs, **kwargs)
 
     def fit(self, X):
         return self
 
-    def transform(self, X):
-        return self.fit_transform(X)
+    def transform(self, X, **kwargs):
+        return self.fit_transform(X, **kwargs)
 
     def _embed_texts(self, texts):
         raise NotImplementedError()
@@ -126,15 +126,22 @@ class WordEmbeddingsVectorizer(EmbeddingVectorizer):
         self.ngram_range = (1,1)
         self.dimensionality = self._get_dimensionality(word_embeddings)
 
-    def _embed_text(self, text):
+    def _embed_text(self, text, aggregate):
         embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.vocab.get(w) is not None]
         if len(embeddings) > 0:
-            return np.mean(embeddings, axis=0)
+            if aggregate:
+                return np.mean(embeddings, axis=0)
+            else:
+                return np.vstack(embeddings)
         else:
             return np.zeros((self.dimensionality,))
 
-    def _embed_texts(self, texts):
-        return np.vstack([self._embed_text(text) for text in texts])
+    def _embed_texts(self, texts, aggregate=True):
+        embeddings = [self._embed_text(text, aggregate=aggregate) for text in texts]
+        if aggregate:
+            return np.vstack(embeddings)
+        else:
+            return embeddings
 
     @classmethod
     def _get_dimensionality(cls, word_embeddings):

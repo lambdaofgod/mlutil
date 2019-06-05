@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 import logging
 from mlutil.embeddings import load_gensim_embedding_model, TextEncoderVectorizer, WordEmbeddingsVectorizer
@@ -17,6 +18,7 @@ paragraph = (
 texts = [word, sentence, paragraph]
 
 
+@pytest.mark.slow
 def test_tfhub_embedding_vectorizer():
 
     vectorizer = TextEncoderVectorizer.from_tfhub_encoder('small')
@@ -28,10 +30,20 @@ def test_tfhub_embedding_vectorizer():
     assert np.all(np.isclose(text_vectors[:, 0], np.array([-0.01698728,  0.03531335,  0.01879095])))
 
 
-def test_word_embeddings_vectorizer():
+def test_word_embeddings_vectorizer_aggregation():
 
     keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
     vectorizer = WordEmbeddingsVectorizer(keyed_vectors)
 
     text_vectors = vectorizer.transform(texts)
     assert text_vectors.shape == (3, 50)
+
+
+def test_word_embeddings_vectorizer_without_aggregation():
+
+    keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
+    vectorizer = WordEmbeddingsVectorizer(keyed_vectors)
+
+    text_vectors = vectorizer.transform(texts, aggregate=False)
+    assert text_vectors[0].shape == (1, 50)
+    assert text_vectors[1].shape == (13, 50)
