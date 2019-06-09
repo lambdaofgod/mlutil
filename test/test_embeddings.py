@@ -21,13 +21,12 @@ texts = [word, sentence, paragraph]
 @pytest.mark.slow
 def test_tfhub_embedding_vectorizer():
 
-    vectorizer = TextEncoderVectorizer.from_tfhub_encoder('small')
-
+    vectorizer = TextEncoderVectorizer.from_tfhub_encoder('large')
 
     text_vectors = vectorizer.transform(texts)
 
     assert text_vectors.shape == (3, 512)
-    assert np.all(np.isclose(text_vectors[:, 0], np.array([-0.01698728,  0.03531335,  0.01879095])))
+    assert np.all(np.isclose(text_vectors[:, 0], np.array([0.04498473, 0.05568017, 0.03874939])))
 
 
 def test_word_embeddings_vectorizer_aggregation():

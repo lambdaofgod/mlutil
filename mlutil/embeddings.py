@@ -32,8 +32,8 @@ def get_tfhub_encoder(url):
 
     tfhub_module = hub.Module(url)
 
-    def encode(texts):
-        with tf.Session() as session:
+    def encode(texts, session):
+        with session:
             session.run([tf.global_variables_initializer(), tf.tables_initializer()])
             message_embeddings = session.run(tfhub_module(texts))
         return message_embeddings
@@ -56,7 +56,7 @@ class EmbeddingVectorizer(VectorizerMixin):
     def transform(self, X, **kwargs):
         return self.fit_transform(X, **kwargs)
 
-    def _embed_texts(self, texts):
+    def _embed_texts(self, texts, **kwargs):
         raise NotImplementedError()
 
 
@@ -83,16 +83,16 @@ class TextEncoderVectorizer(EmbeddingVectorizer):
         self.stop_words = stop_words
         self.ngram_range = (1,1)
 
-    def _embed_texts(self, texts):
-        return self.text_encoder(texts)
+    def _embed_texts(self, texts, session=tf.Session(), **kwargs):
+        return self.text_encoder(texts, session=session)
 
     @staticmethod
-    def from_tfhub_encoder(tfhub_encoder='small', **kwargs):
+    def from_tfhub_encoder(tfhub_encoder='large', **kwargs):
         if type(tfhub_encoder) is str:
             if tfhub_encoder == 'small':
                 url = 'https://tfhub.dev/google/universal-sentence-encoder/2'
                 encoder = get_tfhub_encoder(url)
-            if tfhub_encoder == 'big':
+            if tfhub_encoder == 'large':
                 url = 'https://tfhub.dev/google/universal-sentence-encoder-large/3'
                 encoder = get_tfhub_encoder(url)
         elif type(tfhub_encoder) is hub.Module:
@@ -136,7 +136,7 @@ class WordEmbeddingsVectorizer(EmbeddingVectorizer):
         else:
             return np.zeros((self.dimensionality,))
 
-    def _embed_texts(self, texts, aggregate=True):
+    def _embed_texts(self, texts, aggregate=True, **kwargs):
         embeddings = [self._embed_text(text, aggregate=aggregate) for text in texts]
         if aggregate:
             return np.vstack(embeddings)
