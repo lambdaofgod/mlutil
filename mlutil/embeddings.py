@@ -1,5 +1,6 @@
 import warnings
 
+import os
 import numpy as np
 from sklearn.feature_extraction.text import VectorizerMixin
 import gensim.downloader as gensim_data_downloader
@@ -32,8 +33,8 @@ def get_tfhub_encoder(url):
 
     tfhub_module = hub.Module(url)
 
-    def encode(texts, session):
-        with session:
+    def encode(texts, session_callback):
+        with session_callback() as session:
             session.run([tf.global_variables_initializer(), tf.tables_initializer()])
             message_embeddings = session.run(tfhub_module(texts))
         return message_embeddings
@@ -83,23 +84,39 @@ class TextEncoderVectorizer(EmbeddingVectorizer):
         self.stop_words = stop_words
         self.ngram_range = (1,1)
 
-    def _embed_texts(self, texts, session=tf.Session(), **kwargs):
-        return self.text_encoder(texts, session=session)
+    def _embed_texts(self, texts, session_callback=tf.Session, batch_size=256, **kwargs):
+        texts_chunked = TextEncoderVectorizer.iter_chunks(texts, chunk_size=batch_size)
+        return np.vstack([self.text_encoder(text_chunk, session_callback=session_callback) for text_chunk in texts_chunked])
 
     @staticmethod
     def from_tfhub_encoder(tfhub_encoder='large', **kwargs):
         if type(tfhub_encoder) is str:
-            if tfhub_encoder == 'small':
+            if os.path.exists(tfhub_encoder):
+                encoder = get_tfhub_encoder(tfhub_encoder)
+            elif tfhub_encoder == 'small':
                 url = 'https://tfhub.dev/google/universal-sentence-encoder/2'
                 encoder = get_tfhub_encoder(url)
-            if tfhub_encoder == 'large':
+            elif tfhub_encoder == 'large':
                 url = 'https://tfhub.dev/google/universal-sentence-encoder-large/3'
                 encoder = get_tfhub_encoder(url)
+            else:
+                raise ValueError('Invalid TFHub encoder name or URL')
         elif type(tfhub_encoder) is hub.Module:
             encoder = tfhub_encoder
         else:
             raise ValueError('Invalid TFHub encoder')
         return TextEncoderVectorizer(encoder, **kwargs)
+
+    @staticmethod
+    def iter_chunks(sequence, chunk_size):
+        res = []
+        for item in sequence:
+            res.append(item)
+            if len(res) >= chunk_size:
+                yield res
+                res = []
+        if res:
+            yield res
 
 
 class WordEmbeddingsVectorizer(EmbeddingVectorizer):
