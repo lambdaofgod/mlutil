@@ -124,7 +124,7 @@ class WordEmbeddingsVectorizer(EmbeddingVectorizer):
         Wrapper for gensim KeyedVectors
     """
 
-    def __init__(self, word_embeddings, input='content', encoding='utf-8',
+    def __init__(self, word_embeddings, average_embeddings=True, input='content', encoding='utf-8',
                  decode_error='strict', strip_accents=None,
                  lowercase=True, preprocessor=None, tokenizer=None,
                  stop_words=None, token_pattern=r"(?u)\b\w+\b",
@@ -142,20 +142,21 @@ class WordEmbeddingsVectorizer(EmbeddingVectorizer):
         self.stop_words = stop_words
         self.ngram_range = (1,1)
         self.dimensionality = self._get_dimensionality(word_embeddings)
+        self.average_embeddings = average_embeddings
 
-    def _embed_text(self, text, aggregate):
+    def _embed_text(self, text):
         embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.vocab.get(w) is not None]
         if len(embeddings) > 0:
-            if aggregate:
+            if self.average_embeddings:
                 return np.mean(embeddings, axis=0)
             else:
                 return np.vstack(embeddings)
         else:
             return np.zeros((self.dimensionality,))
 
-    def _embed_texts(self, texts, aggregate=True, **kwargs):
-        embeddings = [self._embed_text(text, aggregate=aggregate) for text in texts]
-        if aggregate:
+    def _embed_texts(self, texts, **kwargs):
+        embeddings = [self._embed_text(text) for text in texts]
+        if self.average_embeddings:
             return np.vstack(embeddings)
         else:
             return embeddings

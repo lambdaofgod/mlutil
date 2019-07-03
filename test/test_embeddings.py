@@ -32,7 +32,7 @@ def test_tfhub_embedding_vectorizer():
 def test_word_embeddings_vectorizer_aggregation():
 
     keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
-    vectorizer = WordEmbeddingsVectorizer(keyed_vectors)
+    vectorizer = WordEmbeddingsVectorizer(keyed_vectors, average_embeddings=True)
 
     text_vectors = vectorizer.transform(texts)
     assert text_vectors.shape == (3, 50)
@@ -41,8 +41,8 @@ def test_word_embeddings_vectorizer_aggregation():
 def test_word_embeddings_vectorizer_without_aggregation():
 
     keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
-    vectorizer = WordEmbeddingsVectorizer(keyed_vectors)
+    vectorizer = WordEmbeddingsVectorizer(keyed_vectors, average_embeddings=False)
 
-    text_vectors = vectorizer.transform(texts, aggregate=False)
+    text_vectors = vectorizer.transform(texts)
     assert text_vectors[0].shape == (1, 50)
     assert text_vectors[1].shape == (13, 50)
