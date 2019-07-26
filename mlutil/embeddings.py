@@ -15,6 +15,11 @@ except ImportError as e:
     logging.warning("tensorflow or tensorflow-hub not found, loading tfhub models won't work")
 
 
+def _session():
+    """This is needed in case user doesn't have tensorflow installed"""
+    return tf.Session
+
+
 def load_gensim_embedding_model(model_name):
     """
     Load word embeddings (gensim KeyedVectors) 
@@ -84,7 +89,7 @@ class TextEncoderVectorizer(EmbeddingVectorizer):
         self.stop_words = stop_words
         self.ngram_range = (1,1)
 
-    def _embed_texts(self, texts, session_callback=tf.Session, batch_size=256, **kwargs):
+    def _embed_texts(self, texts, session_callback=_session(), batch_size=256, **kwargs):
         texts_chunked = TextEncoderVectorizer.iter_chunks(texts, chunk_size=batch_size)
         return np.vstack([self.text_encoder(text_chunk, session_callback=session_callback) for text_chunk in texts_chunked])
 
@@ -117,7 +122,7 @@ class TextEncoderVectorizer(EmbeddingVectorizer):
                 res = []
         if res:
             yield res
-
+    
 
 class WordEmbeddingsVectorizer(EmbeddingVectorizer):
     """
@@ -171,3 +176,10 @@ class WordEmbeddingsVectorizer(EmbeddingVectorizer):
     def from_gensim_embedding_model(cls, model_name='glove-wiki-gigaword-50', **kwargs):
         word_embeddings = load_gensim_embedding_model(model_name)
         return WordEmbeddingsVectorizer(word_embeddings, **kwargs)
+
+
+def _session():
+    """This is needed in case user doesn't have tensorflow installed"""
+    return tf.Session
+
+
