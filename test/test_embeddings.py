@@ -1,7 +1,14 @@
 import pytest
 import numpy as np
 import logging
-from mlutil.embeddings import load_gensim_embedding_model, TextEncoderVectorizer, WordEmbeddingsVectorizer
+from mlutil.embeddings import (
+    load_gensim_embedding_model,
+    TextEncoderVectorizer,
+    AverageWordEmbeddingsVectorizer,
+    SIFEmbeddingVectorizer
+)
+from sklearn.feature_extraction.text import CountVectorizer
+
 try:
     import tensorflow as tf
     import tensorflow_hub as hub
@@ -32,7 +39,7 @@ def test_tfhub_embedding_vectorizer():
 def test_word_embeddings_vectorizer_aggregation():
 
     keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
-    vectorizer = WordEmbeddingsVectorizer(keyed_vectors, average_embeddings=True)
+    vectorizer = AverageWordEmbeddingsVectorizer(keyed_vectors, average_embeddings=True)
 
     text_vectors = vectorizer.transform(texts)
     assert text_vectors.shape == (3, 50)
@@ -41,8 +48,19 @@ def test_word_embeddings_vectorizer_aggregation():
 def test_word_embeddings_vectorizer_without_aggregation():
 
     keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
-    vectorizer = WordEmbeddingsVectorizer(keyed_vectors, average_embeddings=False)
+    vectorizer = AverageWordEmbeddingsVectorizer(keyed_vectors, average_embeddings=False)
 
     text_vectors = vectorizer.transform(texts)
     assert text_vectors[0].shape == (1, 50)
     assert text_vectors[1].shape == (13, 50)
+
+
+def test_sif_word_embeddings_vectorizer():
+
+    keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
+    cvec = CountVectorizer()
+    cvec.fit(paragraph.split('\n'))
+    vectorizer = SIFEmbeddingVectorizer(keyed_vectors, count_vectorizer=cvec)
+
+    text_vectors = vectorizer.transform(texts)
+    assert text_vectors.shape == (3, 50)

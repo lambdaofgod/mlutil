@@ -1,12 +1,12 @@
+import itertools
+import logging
+import os
 import warnings
 
-import os
-import numpy as np
-from sklearn.feature_extraction.text import VectorizerMixin
 import gensim.downloader as gensim_data_downloader
-import logging
-import itertools
-
+import numpy as np
+from sklearn import decomposition
+from sklearn.feature_extraction.text import VectorizerMixin
 
 try:
     import tensorflow as tf
@@ -122,9 +122,10 @@ class TextEncoderVectorizer(EmbeddingVectorizer):
                 res = []
         if res:
             yield res
-    
 
-class WordEmbeddingsVectorizer(EmbeddingVectorizer):
+
+
+class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
     """
         Wrapper for gensim KeyedVectors
     """
@@ -141,13 +142,13 @@ class WordEmbeddingsVectorizer(EmbeddingVectorizer):
         self.strip_accents = strip_accents
         self.preprocessor = preprocessor
         self.tokenizer = tokenizer
-        self.analyzer = analyzer
         self.lowercase = lowercase
         self.token_pattern = token_pattern
         self.stop_words = stop_words
         self.ngram_range = (1,1)
-        self.dimensionality = self._get_dimensionality(word_embeddings)
+        self.dimensionality = _get_dimensionality(word_embeddings)
         self.average_embeddings = average_embeddings
+        self.analyzer = analyzer
 
     def _embed_text(self, text):
         embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.vocab.get(w) is not None]
@@ -167,15 +168,71 @@ class WordEmbeddingsVectorizer(EmbeddingVectorizer):
             return embeddings
 
     @classmethod
-    def _get_dimensionality(cls, word_embeddings):
-        example_key = list(itertools.islice(word_embeddings.vocab, 1))[0]
-        vector = word_embeddings[example_key]
-        return vector.shape[0]
-
-    @classmethod
     def from_gensim_embedding_model(cls, model_name='glove-wiki-gigaword-50', **kwargs):
         word_embeddings = load_gensim_embedding_model(model_name)
-        return WordEmbeddingsVectorizer(word_embeddings, **kwargs)
+        return AverageWordEmbeddingsVectorizer(word_embeddings, **kwargs)
+
+
+class SIFEmbeddingVectorizer(EmbeddingVectorizer):
+    """
+        sentence embedding by Smooth Inverse Frequency weighting scheme from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
+    """
+
+    def __init__(
+            self,
+             word_embeddings,
+            count_vectorizer,
+            component_analyzer=decomposition.TruncatedSVD(n_components=1),
+            a=0.01,
+            input='content', encoding='utf-8',
+            decode_error='strict', strip_accents=None,
+            lowercase=True, preprocessor=None, tokenizer=None,
+            stop_words=None, token_pattern=r"(?u)\b\w+\b",
+            analyzer='word'):
+        self.component_analyzer = component_analyzer
+        self.count_vectorizer = count_vectorizer
+        self.word_embeddings = word_embeddings
+        self.input = input
+        self.encoding = encoding
+        self.decode_error = decode_error
+        self.strip_accents = strip_accents
+        self.preprocessor = preprocessor
+        self.tokenizer = tokenizer
+        self.analyzer = analyzer
+        self.lowercase = lowercase
+        self.token_pattern = token_pattern
+        self.stop_words = stop_words
+        self.ngram_range = (1,1)
+        self.dimensionality = _get_dimensionality(word_embeddings)
+        self.analyzer = analyzer
+        self.analyzer = self.build_analyzer()
+        self.a = a
+
+    def _embed_texts(self, texts, a=None, **kwargs):
+        if a is None:
+            a = self.a
+        return np.vstack([self._embed_text(t, a) for t in texts])
+
+    def _embed_text(self, text, a):
+        words = self.analyzer(text)
+        word_vectors = np.vstack([self._get_vector_or_default(self.word_embeddings, w) for w in words])
+        smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(words, self.count_vectorizer, a)
+        return (word_vectors * smoothed_word_frequencies).sum(axis=0)
+
+    @classmethod
+    def _get_smoothed_inverse_word_frequencies(cls, words, count_vectorizer, a):
+        word_frequencies = np.asarray(count_vectorizer.transform(words).sum(axis=1))
+        return a / (a + 1 + word_frequencies)
+
+    @classmethod
+    def _get_vector_or_default(cls, word_embeddings, word, default=None):
+        if default is None:
+            default = np.zeros(word_embeddings['.'].shape)
+
+        if word not in word_embeddings.vocab.keys():
+            return default
+        else:
+            return word_embeddings[word]
 
 
 def _session():
@@ -183,3 +240,7 @@ def _session():
     return tf.Session
 
 
+def _get_dimensionality(word_embeddings):
+    example_key = list(itertools.islice(word_embeddings.vocab, 1))[0]
+    vector = word_embeddings[example_key]
+    return vector.shape[0]
