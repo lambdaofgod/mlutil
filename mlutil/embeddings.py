@@ -208,7 +208,23 @@ class SIFEmbeddingVectorizer(EmbeddingVectorizer):
         self.analyzer = self.build_analyzer()
         self.a = a
 
-    def _embed_texts(self, texts, a=None, **kwargs):
+    def fit(self, texts, a=None):
+        if not hasattr(self.count_vectorizer, 'vocabulary_'):
+            self.count_vectorizer.fit(texts)
+        vectors = self._embed_texts(texts, a=a)
+        self.component_analyzer.fit(vectors)
+
+    def transform(self, texts, a=None, **kwargs):
+        vectors = self._embed_texts(texts, a=a)
+        deleted_components = self.component_analyzer.transform(vectors)
+        return vectors - self.component_analyzer.inverse_transform(deleted_components)
+
+    def fit_transform(self, texts, a=None, **kwargs):
+        self.fit(texts, a)
+        return self.transform(texts, a)
+
+    def _embed_texts(self, texts, **kwargs):
+        a = kwargs.get('a')
         if a is None:
             a = self.a
         return np.vstack([self._embed_text(t, a) for t in texts])
@@ -220,9 +236,10 @@ class SIFEmbeddingVectorizer(EmbeddingVectorizer):
         return (word_vectors * smoothed_word_frequencies).sum(axis=0)
 
     @classmethod
-    def _get_smoothed_inverse_word_frequencies(cls, words, count_vectorizer, a):
-        word_frequencies = np.asarray(count_vectorizer.transform(words).sum(axis=1))
-        return a / (a + 1 + word_frequencies)
+    def _get_smoothed_inverse_word_frequencies(cls, words, count_vectorizer, a, eps=1e-8):
+        word_counts = count_vectorizer.transform(words).sum(axis=1)
+        word_probabilities = 1.0 / (np.asarray(word_counts) + eps)
+        return a / (a + word_probabilities)
 
     @classmethod
     def _get_vector_or_default(cls, word_embeddings, word, default=None):
