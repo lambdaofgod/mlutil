@@ -62,5 +62,5 @@ def test_sif_word_embeddings_vectorizer():
     cvec.fit(paragraph.split('\n'))
     vectorizer = SIFEmbeddingVectorizer(keyed_vectors, count_vectorizer=cvec)
 
-    text_vectors = vectorizer.transform(texts)
+    text_vectors = vectorizer.fit_transform(texts)
     assert text_vectors.shape == (3, 50)

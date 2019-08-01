@@ -6,18 +6,21 @@ import warnings
 import gensim.downloader as gensim_data_downloader
 import numpy as np
 from sklearn import decomposition
-from sklearn.feature_extraction.text import VectorizerMixin
+from mlutil.feature_extraction_text import VectorizerMixin
 
 try:
     import tensorflow as tf
     import tensorflow_hub as hub
+
+    def _session():
+        return tf.Session
+
+
 except ImportError as e:
     logging.warning("tensorflow or tensorflow-hub not found, loading tfhub models won't work")
-
-
-def _session():
-    """This is needed in case user doesn't have tensorflow installed"""
-    return tf.Session
+    
+    def _session():
+        return None
 
 
 def load_gensim_embedding_model(model_name):
@@ -205,7 +208,6 @@ class SIFEmbeddingVectorizer(EmbeddingVectorizer):
         self.ngram_range = (1,1)
         self.dimensionality = _get_dimensionality(word_embeddings)
         self.analyzer = analyzer
-        self.analyzer = self.build_analyzer()
         self.a = a
 
     def fit(self, texts, a=None):
@@ -250,11 +252,6 @@ class SIFEmbeddingVectorizer(EmbeddingVectorizer):
             return default
         else:
             return word_embeddings[word]
-
-
-def _session():
-    """This is needed in case user doesn't have tensorflow installed"""
-    return tf.Session
 
 
 def _get_dimensionality(word_embeddings):
