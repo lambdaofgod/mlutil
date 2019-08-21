@@ -5,5 +5,3 @@ numpy
 tqdm
 sklearn
 pytest
-Cython
-POT
