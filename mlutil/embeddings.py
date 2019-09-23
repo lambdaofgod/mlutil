@@ -233,8 +233,9 @@ class SIFEmbeddingVectorizer(EmbeddingVectorizer):
 
     def _embed_text(self, text, a):
         words = self.analyzer(text)
-        word_vectors = np.vstack([self._get_vector_or_default(self.word_embeddings, w) for w in words])
-        smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(words, self.count_vectorizer, a)
+        filtered_words = [word for word in words if word in self.word_embeddings.vocab.keys()]
+        word_vectors = self._get_vectors_or_default(self.word_embeddings, filtered_words)
+        smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(filtered_words, self.count_vectorizer, a)
         return (word_vectors * smoothed_word_frequencies).sum(axis=0)
 
     @classmethod
@@ -244,14 +245,14 @@ class SIFEmbeddingVectorizer(EmbeddingVectorizer):
         return a / (a + word_probabilities)
 
     @classmethod
-    def _get_vector_or_default(cls, word_embeddings, word, default=None):
+    def _get_vectors_or_default(cls, word_embeddings, words, default=None):
         if default is None:
             default = np.zeros(word_embeddings['.'].shape)
 
-        if word not in word_embeddings.vocab.keys():
-            return default
+        if len(words) > 0:
+            return np.vstack([word_embeddings[w] for w in words])
         else:
-            return word_embeddings[word]
+            return default
 
 
 def _get_dimensionality(word_embeddings):
