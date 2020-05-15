@@ -1,3 +1,4 @@
+import numpy as np
 from torchvision import transforms, models
 import torch
 from torch import nn
@@ -19,18 +20,18 @@ class TorchFeatureExtractor:
             use_gpu=True,
             normalize=imagenet_normalize,
             to_fp16=False,
-            img_size=img_size
+            img_size=224
         ):
         self.use_gpu = use_gpu
-        self.model = self.get_layers(model, last_nested_index, last_layers)
         self.normalize = normalize
+        self.to_fp16 = to_fp16
+        self.model = self.get_layers(model, last_nested_index, last_layers)
         self.scaler = transforms.Scale((img_size, img_size))
     
     def load_img(self, path):
         img = Image.open(path)
-        image_tensor = self.normalize(transforms.ToTensor()(self.scaler(img))
-        t_img = torch.autograd.Variable(image_tensor).unsqueeze(0))
-        return t_img
+        torch_img = self.normalize(transforms.ToTensor()(self.scaler(img)))
+        return torch.autograd.Variable(torch_img.unsqueeze(0))
     
     def get_vector(self, image):
         img = self.maybe_to_cuda(load_img(p))
@@ -38,9 +39,10 @@ class TorchFeatureExtractor:
         
     def maybe_to_cuda(self, torch_object):
         if self.use_gpu:
-            return torch_object.cuda().half()
-        else:
-            return torch_object
+            torch_object = torch_object.cuda()
+        if self.to_fp16:
+            torch_object = torch_object.half()
+        return torch_object
         
     def get_features(self, images, use_tqdm=True):
         tqdm_wrapper = tqdm.tqdm if use_tqdm else lambda x: x
@@ -63,4 +65,4 @@ class TorchFeatureExtractor:
         for p in model.parameters():
             p.requires_grad = False
         model.eval()
-        return model
+        return self.maybe_to_cuda(model)
