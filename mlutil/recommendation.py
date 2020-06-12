@@ -1,6 +1,16 @@
 import numpy as np
 import attr
 from functools import partial
+from sklearn import compose, preprocessing
+
+
+def factorization_machine_column_transformer(columns):
+    return compose.ColumnTransformer(
+        [
+            (col, preprocessing.OneHotEncoder(), [col])
+            for col in columns
+        ]
+    )
 
 
 def masked_error(true, pred, error_fn):

@@ -22,14 +22,15 @@ def get_training_runs(operation_name, guild_env_path=get_current_guild_env_path(
     return training_runs_df 
 
 
-def get_weight_files(run_id):
+def get_weight_files(run_id, guild_env_path=get_current_guild_env_path()):
     """
     get Keras model weight files for specified run_id
     """
     if run_id is None:
         return os.listdir()
     else:
-        all_run_dirs = os.listdir('/'.join([current_env_guild, 'runs']))
-        runs_df = get_training_runs(current_env_guild)
-        run_path = [os.path.join(current_env_guild, 'runs', p) for p in all_run_dirs if p.startswith(run_id)][0]
+        guild_home = cfg.SetGuildHome(guild_env_path)
+        all_run_dirs = os.listdir('/'.join([guild_env_path, 'runs']))
+        runs_df = get_training_runs(guild_home)
+        run_path = [os.path.join(guild_env_path, 'runs', p) for p in all_run_dirs if p.startswith(run_id)][0]
         return sorted(glob.glob('/'.join([run_path, "*weight*"])))
