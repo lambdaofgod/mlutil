@@ -9,7 +9,6 @@ import tqdm
 
 try:
     import numba
-
 except ImportError as e:
     logging.warning("numba not found, you'll not be able to use mlutil.evolutionary_algorithms.multiobjective")
 
@@ -26,6 +25,7 @@ class NSGAII:
     chromosome_size: int = attr.ib()
     mutation_function = attr.ib(default=bounded_gaussian_noise_mutation)
     random_initializer = attr.ib(default=np.random.rand)    
+    population_bounds = attr.ib(default=(0,1))
     
     def optimize(
             self,
@@ -48,8 +48,16 @@ class NSGAII:
             indices = nsga_selection(n_selected, values)
             values_selected = values[indices]
             pop_selected = pop[indices]
-            pop_new = np.row_stack([bounded_gaussian_noise_mutation(pop_selected[i], population_size // n_selected) for i in range(n_selected)])
-            pop = np.clip(pop_new, 0, 1)
+            pop_new = np.row_stack(
+                [
+                    self.mutation_function(pop_selected[i], population_size // n_selected)
+                    for i in range(n_selected)
+                ]
+            )
+            pop = pop_new 
+            if self.population_bounds is not None:
+                lo, hi = self.population_bounds
+                pop = np.clip(pop, lo, hi)
 
             if verbose and _iter % log_period == 0:
                 plt_values = values
