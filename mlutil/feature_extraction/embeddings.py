@@ -8,6 +8,7 @@ import numpy as np
 from sklearn import decomposition
 from mlutil.feature_extraction.text import VectorizerMixin
 
+
 try:
     import tensorflow as tf
     import tensorflow_hub as hub
@@ -54,7 +55,7 @@ class EmbeddingVectorizer(VectorizerMixin):
         Base class for word/text embedding wrappers
     """
 
-    def fit_transform(self, X, **kwargs):
+    def transform(self, X, **kwargs):
         analyzer = self.build_analyzer()
         analyzed_docs = [' '.join(analyzer(doc)) for doc in X]
         return self._embed_texts(analyzed_docs, **kwargs)
@@ -62,8 +63,9 @@ class EmbeddingVectorizer(VectorizerMixin):
     def fit(self, X):
         return self
 
-    def transform(self, X, **kwargs):
-        return self.fit_transform(X, **kwargs)
+    def fit_transform(self, X, **kwargs):
+        self.fit(X)
+        return self._transform(X, **kwargs)
 
     def _embed_texts(self, texts, **kwargs):
         raise NotImplementedError()
@@ -176,14 +178,15 @@ class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
         return AverageWordEmbeddingsVectorizer(word_embeddings, **kwargs)
 
 
-class SIFEmbeddingVectorizer(EmbeddingVectorizer):
+class PCREmbeddingVectorizer(EmbeddingVectorizer):
     """
-        sentence embedding by Smooth Inverse Frequency weighting scheme from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
+        sentence embedding with principal component removal
+        the idea comes from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
+        also see 'A Critique of the Smooth Inverse Frequency Sentence Embeddings' 
     """
-
     def __init__(
             self,
-             word_embeddings,
+            word_embeddings,
             count_vectorizer,
             component_analyzer=decomposition.TruncatedSVD(n_components=1),
             a=0.01,
@@ -216,33 +219,27 @@ class SIFEmbeddingVectorizer(EmbeddingVectorizer):
         vectors = self._embed_texts(texts, a=a)
         self.component_analyzer.fit(vectors)
 
-    def transform(self, texts, a=None, **kwargs):
-        vectors = self._embed_texts(texts, a=a)
+    def transform(self, texts, **kwargs):
+        vectors = self._embed_texts(texts, **kwargs)
         deleted_components = self.component_analyzer.transform(vectors)
         return vectors - self.component_analyzer.inverse_transform(deleted_components)
 
-    def fit_transform(self, texts, a=None, **kwargs):
-        self.fit(texts, a)
-        return self.transform(texts, a)
+    def _embed_text(self, text):
+        embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.vocab.get(w) is not None]
+        if len(embeddings) > 0:
+            if self.average_embeddings:
+                return np.mean(embeddings, axis=0)
+            else:
+                return np.vstack(embeddings)
+        else:
+            return np.zeros((self.dimensionality,))
+
+    def fit_transform(self, texts, **kwargs):
+        self.fit(texts)
+        return self.transform(texts)
 
     def _embed_texts(self, texts, **kwargs):
-        a = kwargs.get('a')
-        if a is None:
-            a = self.a
-        return np.vstack([self._embed_text(t, a) for t in texts])
-
-    def _embed_text(self, text, a):
-        words = self.analyzer(text)
-        filtered_words = [word for word in words if word in self.word_embeddings.vocab.keys()]
-        word_vectors = self._get_vectors_or_default(self.word_embeddings, filtered_words)
-        smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(filtered_words, self.count_vectorizer, a)
-        return (word_vectors * smoothed_word_frequencies).sum(axis=0)
-
-    @classmethod
-    def _get_smoothed_inverse_word_frequencies(cls, words, count_vectorizer, a, eps=1e-8):
-        word_counts = count_vectorizer.transform(words).sum(axis=1)
-        word_probabilities = 1.0 / (np.asarray(word_counts) + eps)
-        return a / (a + word_probabilities)
+        return np.vstack([self._embed_text(t, **kwargs) for t in texts])
 
     @classmethod
     def _get_vectors_or_default(cls, word_embeddings, words, default=None):
@@ -255,6 +252,24 @@ class SIFEmbeddingVectorizer(EmbeddingVectorizer):
             return default
 
 
+class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
+    """
+        sentence embedding by Smooth Inverse Frequency weighting scheme from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
+    """
+    def _embed_text(self, text):
+        words = self.analyzer(text)
+        filtered_words = [word for word in words if word in self.word_embeddings.vocab.keys()]
+        word_vectors = self._get_vectors_or_default(self.word_embeddings, filtered_words)
+        smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(filtered_words, self.count_vectorizer)
+        return (word_vectors * smoothed_word_frequencies).sum(axis=0)
+
+    @classmethod
+    def _get_smoothed_inverse_word_frequencies(cls, words, count_vectorizer, eps=1e-8):
+        word_counts = count_vectorizer.transform(words).sum(axis=1)
+        word_probabilities = 1.0 / (np.asarray(word_counts) + eps)
+        return self.a / (self.a + word_probabilities)
+
+ 
 def _get_dimensionality(word_embeddings):
     example_key = list(itertools.islice(word_embeddings.vocab, 1))[0]
     vector = word_embeddings[example_key]
