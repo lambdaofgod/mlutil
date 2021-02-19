@@ -6,7 +6,7 @@ from functools import partial
 import numpy as np
 import unicodedata
 from sklearn.exceptions import ChangedBehaviorWarning
-from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
+import stop_words
 from sklearn.utils.validation import check_is_fitted
 
 
@@ -127,7 +127,7 @@ def strip_tags(s):
 
 def _check_stop_list(stop):
     if stop == "english":
-        return ENGLISH_STOP_WORDS
+        return stopwords.get_stop_words('en') 
     elif isinstance(stop, str):
         raise ValueError("not a built-in stop list: %s" % stop)
     elif stop is None:

@@ -6,3 +6,4 @@ tqdm
 sklearn
 pytest
 seaborn
+stop-words
