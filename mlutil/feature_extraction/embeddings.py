@@ -208,12 +208,13 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
         self.token_pattern = token_pattern
         self.stop_words = stop_words
         self.ngram_range = (1,1)
-        self.dimensionality = _get_dimensionality(word_embeddings)
+        self.dimensionality_ = _get_dimensionality(word_embeddings)
         self.analyzer = analyzer
 
     def fit(self, texts):
         vectors = self._embed_texts(texts)
         self.component_analyzer.fit(vectors)
+        self.components_ = self.component_analyzer.components_
 
     def transform(self, texts, **kwargs):
         vectors = self._embed_texts(texts, **kwargs)
@@ -228,7 +229,7 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
             else:
                 return np.vstack(embeddings)
         else:
-            return np.zeros((self.dimensionality,))
+            return np.zeros((self.dimensionality_,))
 
     def fit_transform(self, texts, **kwargs):
         self.fit(texts)
