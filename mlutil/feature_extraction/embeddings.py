@@ -187,17 +187,16 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
     def __init__(
             self,
             word_embeddings,
-            count_vectorizer,
             component_analyzer=decomposition.TruncatedSVD(n_components=1),
-            a=0.01,
+            average_embeddings=True,
             input='content', encoding='utf-8',
             decode_error='strict', strip_accents=None,
             lowercase=True, preprocessor=None, tokenizer=None,
             stop_words=None, token_pattern=r"(?u)\b\w+\b",
             analyzer='word'):
         self.component_analyzer = component_analyzer
-        self.count_vectorizer = count_vectorizer
         self.word_embeddings = word_embeddings
+        self.average_embeddings=True,
         self.input = input
         self.encoding = encoding
         self.decode_error = decode_error
@@ -211,12 +210,9 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
         self.ngram_range = (1,1)
         self.dimensionality = _get_dimensionality(word_embeddings)
         self.analyzer = analyzer
-        self.a = a
 
-    def fit(self, texts, a=None):
-        if not hasattr(self.count_vectorizer, 'vocabulary_'):
-            self.count_vectorizer.fit(texts)
-        vectors = self._embed_texts(texts, a=a)
+    def fit(self, texts):
+        vectors = self._embed_texts(texts)
         self.component_analyzer.fit(vectors)
 
     def transform(self, texts, **kwargs):
@@ -256,6 +252,18 @@ class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
     """
         sentence embedding by Smooth Inverse Frequency weighting scheme from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
     """
+
+    def __init__(self, count_vectorizer, **kwargs):
+        PCREmbeddingVectorizer.__init__(self, **kwargs)
+        self.count_vectorizer = count_vectorizer
+        self.a = a
+
+    def fit(self, a=None):
+        if not hasattr(self.count_vectorizer, 'vocabulary_'):
+            self.count_vectorizer.fit(texts)
+        vectors = self._embed_texts(texts, a=a)
+        self.component_analyzer.fit(vectors)
+
     def _embed_text(self, text):
         words = self.analyzer(text)
         filtered_words = [word for word in words if word in self.word_embeddings.vocab.keys()]
