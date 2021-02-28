@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import logging
 from mlutil.feature_extraction import embeddings 
+from mlutil.feature_extraction.embeddings import load_gensim_embedding_model 
 from sklearn.feature_extraction.text import CountVectorizer
 
 try:
@@ -54,7 +55,7 @@ def test_pcr_word_embeddings_vectorizer():
     keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
     cvec = CountVectorizer()
     cvec.fit(paragraph.split('\n'))
-    vectorizer = embeddings.PCREmbeddingVectorizer(keyed_vectors, count_vectorizer=cvec)
+    vectorizer = embeddings.PCREmbeddingVectorizer(keyed_vectors)
     text_vectors = vectorizer.fit_transform(texts)
     assert text_vectors.shape == (3, 50)
 
@@ -64,7 +65,7 @@ def test_sif_word_embeddings_vectorizer():
     keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
     cvec = CountVectorizer()
     cvec.fit(paragraph.split('\n'))
-    vectorizer = embeddings.SIFEmbeddingVectorizer(keyed_vectors, count_vectorizer=cvec)
+    vectorizer = embeddings.SIFEmbeddingVectorizer(word_embeddings=keyed_vectors, count_vectorizer=cvec)
 
     text_vectors = vectorizer.fit_transform(texts)
     assert text_vectors.shape == (3, 50)

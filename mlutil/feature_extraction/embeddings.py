@@ -15,11 +15,9 @@ try:
 
     def _session():
         return tf.Session
-
-
 except ImportError as e:
     logging.warning("tensorflow or tensorflow-hub not found, loading tfhub models won't work")
-    
+
     def _session():
         return None
 
@@ -65,7 +63,7 @@ class EmbeddingVectorizer(VectorizerMixin):
 
     def fit_transform(self, X, **kwargs):
         self.fit(X)
-        return self._transform(X, **kwargs)
+        return self.transform(X, **kwargs)
 
     def _embed_texts(self, texts, **kwargs):
         raise NotImplementedError()
@@ -151,7 +149,7 @@ class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
         self.token_pattern = token_pattern
         self.stop_words = stop_words
         self.ngram_range = (1,1)
-        self.dimensionality = _get_dimensionality(word_embeddings)
+        self.dimensionality_ = _get_dimensionality(word_embeddings)
         self.average_embeddings = average_embeddings
         self.analyzer = analyzer
 
@@ -163,7 +161,7 @@ class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
             else:
                 return np.vstack(embeddings)
         else:
-            return np.zeros((self.dimensionality,))
+            return np.zeros((self.dimensionality_,))
 
     def _embed_texts(self, texts, **kwargs):
         embeddings = [self._embed_text(text) for text in texts]
@@ -254,7 +252,7 @@ class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
         sentence embedding by Smooth Inverse Frequency weighting scheme from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
     """
 
-    def __init__(self, count_vectorizer, **kwargs):
+    def __init__(self, count_vectorizer, a=0.01, **kwargs):
         PCREmbeddingVectorizer.__init__(self, **kwargs)
         self.count_vectorizer = count_vectorizer
         self.a = a
