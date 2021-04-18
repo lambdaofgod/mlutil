@@ -12,23 +12,17 @@ from mlutil.feature_extraction.text import VectorizerMixin
 try:
     import tensorflow as tf
     import tensorflow_hub as hub
-
-    def _session():
-        return tf.Session
 except ImportError as e:
     logging.warning("tensorflow or tensorflow-hub not found, loading tfhub models won't work")
-
-    def _session():
-        return None
 
 
 def load_gensim_embedding_model(model_name):
     """
-    Load word embeddings (gensim KeyedVectors) 
+    Load word embeddings (gensim KeyedVectors)
     """
     available_models = gensim_data_downloader.info()['models'].keys()
     assert model_name in available_models, 'Invalid model_name: {}. Choose one from {}'.format(model_name, ', '.join(available_models))
-    
+
     # gensim throws some nasty warnings about vocabulary
     with warnings.catch_warnings():
         warnings.filterwarnings(action='ignore', category=UserWarning, module='gensim')
@@ -69,6 +63,36 @@ class EmbeddingVectorizer(VectorizerMixin):
         raise NotImplementedError()
 
 
+class Doc2Vectorizer(EmbeddingVectorizer):
+
+    def __init__(self, doc2vec_model, input='content', encoding='utf-8',
+                 decode_error='strict', strip_accents=None,
+                 lowercase=False, preprocessor=None, tokenizer=None,
+                 stop_words=None, token_pattern=r"(?u)\b\w+\b",
+                 analyzer='word'):
+        self.input = input
+        self.encoding = encoding
+        self.decode_error = decode_error
+        self.strip_accents = strip_accents
+        self.preprocessor = preprocessor
+        self.tokenizer = tokenizer
+        self.analyzer = analyzer
+        self.lowercase = lowercase
+        self.token_pattern = token_pattern
+        self.stop_words = stop_words
+        self.ngram_range = (1,1)
+        self.doc2vec_model = doc2vec_model
+        self.dimensionality_ = doc2vec_model.trainables.layer1_size
+
+    def _embed_texts(self, texts, **kwargs):
+        return np.row_stack(
+            [
+                self.doc2vec_model.infer_vector(t.split())
+                for t in texts
+            ]
+        )
+
+
 class TextEncoderVectorizer(EmbeddingVectorizer):
     """
         Wrapper for Tensorflow Hub Universal Sentence Encoder
@@ -92,9 +116,9 @@ class TextEncoderVectorizer(EmbeddingVectorizer):
         self.stop_words = stop_words
         self.ngram_range = (1,1)
 
-    def _embed_texts(self, texts, session_callback=_session(), batch_size=256, **kwargs):
+    def _embed_texts(self, texts, batch_size=256, **kwargs):
         texts_chunked = TextEncoderVectorizer.iter_chunks(texts, chunk_size=batch_size)
-        return np.vstack([self.text_encoder(text_chunk, session_callback=session_callback) for text_chunk in texts_chunked])
+        return np.vstack([self.text_encoder(text_chunk) for text_chunk in texts_chunked])
 
     @staticmethod
     def from_tfhub_encoder(tfhub_encoder='large', **kwargs):
@@ -185,14 +209,14 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
     def __init__(
             self,
             word_embeddings,
-            component_analyzer=decomposition.TruncatedSVD(n_components=1),
+            component_analyzer=None,
             average_embeddings=True,
             input='content', encoding='utf-8',
             decode_error='strict', strip_accents=None,
             lowercase=True, preprocessor=None, tokenizer=None,
             stop_words=None, token_pattern=r"(?u)\b\w+\b",
             analyzer='word'):
-        self.component_analyzer = component_analyzer
+        self.component_analyzer = component_analyzer if not component_analyzer is None else decomposition.TruncatedSVD(n_components=1)
         self.word_embeddings = word_embeddings
         self.average_embeddings=True,
         self.input = input
@@ -276,7 +300,7 @@ class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
         word_probabilities = 1.0 / (np.asarray(word_counts) + eps)
         return self.a / (self.a + word_probabilities)
 
- 
+
 def _get_dimensionality(word_embeddings):
     example_key = list(itertools.islice(word_embeddings.vocab, 1))[0]
     vector = word_embeddings[example_key]
