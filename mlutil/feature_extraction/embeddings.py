@@ -178,7 +178,7 @@ class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
         self.analyzer = analyzer
 
     def _embed_text(self, text):
-        embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.vocab.get(w) is not None]
+        embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.wv.vocab.get(w) is not None]
         if len(embeddings) > 0:
             if self.average_embeddings:
                 return np.mean(embeddings, axis=0)
@@ -289,7 +289,7 @@ class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
 
     def _embed_text(self, text):
         words = self.analyzer(text)
-        filtered_words = [word for word in words if word in self.word_embeddings.vocab.keys()]
+        filtered_words = [word for word in words if word in self.word_embeddings.wv.vocab.keys()]
         word_vectors = self._get_vectors_or_default(self.word_embeddings, filtered_words)
         smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(filtered_words, self.count_vectorizer)
         return (word_vectors * smoothed_word_frequencies).sum(axis=0)
@@ -302,6 +302,6 @@ class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
 
 
 def _get_dimensionality(word_embeddings):
-    example_key = list(itertools.islice(word_embeddings.vocab, 1))[0]
+    example_key = list(itertools.islice(word_embeddings.wv.vocab, 1))[0]
     vector = word_embeddings[example_key]
     return vector.shape[0]
