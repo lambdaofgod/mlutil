@@ -2,6 +2,9 @@ import itertools
 import logging
 import os
 import warnings
+import transformers
+import numpy as np
+
 
 import gensim.downloader as gensim_data_downloader
 import numpy as np
@@ -40,6 +43,21 @@ def get_tfhub_encoder(url):
             message_embeddings = session.run(tfhub_module(texts))
         return message_embeddings
     return encode
+
+
+class TransformerVectorizer:
+
+    def __init__(self, model_type, aggregating_function=np.mean):
+        tokenizer = transformers.AutoTokenizer.from_pretrained(model_type)
+        model = transformers.AutoModel.from_pretrained(model_type)
+        self.pipeline = transformers.FeatureExtractionPipeline(model, tokenizer)
+        self.aggregating_function = aggregating_function
+
+    def transform(self, texts):
+        return np.array([
+            self.aggregating_function(self.pipeline(text), axis=1)[0]
+            for text in texts
+        ])
 
 
 class EmbeddingVectorizer(VectorizerMixin):

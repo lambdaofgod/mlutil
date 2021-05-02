@@ -9,7 +9,6 @@ from sklearn.exceptions import ChangedBehaviorWarning
 import stop_words
 from sklearn.utils.validation import check_is_fitted
 
-
 # Sklearn's Vectorizer mixin from FIX remove lambdas from text preprocessing #14430
 # This should be made redundant when the appropriate PR is merged (in sklearn 21.3?)
 
