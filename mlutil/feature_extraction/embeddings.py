@@ -64,11 +64,10 @@ class TransformerVectorizer:
         if verbose:
             batches = tqdm.tqdm(batches, total=int(np.ceil(len(texts) / batch_size)))
         features = []
-        for batch in batches:
-            features_tensor = self.transform_batch(batch).detach()
-            features.append(features_tensor.cpu().numpy())
-            del features_tensor
-            torch.cuda.empty_cache()
+        with torch.no_grad():
+            for batch in batches:
+                features_tensor = self.transform_batch(batch).detach()
+                features.append(features_tensor.cpu().numpy())
         return np.row_stack(features)
 
     def transform_batch(self, batch):
