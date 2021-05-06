@@ -50,21 +50,26 @@ def get_tfhub_encoder(url):
 
 class TransformerVectorizer:
 
-    def __init__(self, model_type, aggregation='mean', device=0):
+    def __init__(self, model_type, aggregation='mean', device=0, batch_size=128):
+        self.batch_size = batch_size
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_type)
         self.model = transformers.AutoModel.from_pretrained(model_type)
         if device != -1:
             self.model = self.model.cuda(device=0)
         self.aggregating_function = self.get_batch_aggregating_function(aggregation)
 
-    def transform(self, texts, batch_size=128, verbose=True):
+    def transform(self, texts, batch_size=None, verbose=True):
+        batch_size = batch_size or self.batch_size
         batches = self.get_batched_list(texts, batch_size)
         if verbose:
             batches = tqdm.tqdm(batches, total=int(np.ceil(len(texts) / batch_size)))
-        return np.row_stack([
-            self.transform_batch(batch).detach().cpu().numpy()
-            for batch in batches
-        ])
+        features = []
+        for batch in batches:
+            features_tensor = self.transform_batch(batch).detach()
+            features.append(features_tensor.cpu().numpy())
+            del features_tensor
+            torch.cuda.empty_cache()
+        return np.row_stack(features)
 
     def transform_batch(self, batch):
         tokenizer_output = self.tokenizer(batch, return_tensors='pt', padding=True)
