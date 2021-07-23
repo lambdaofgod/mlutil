@@ -117,10 +117,10 @@ class EmbeddingVectorizer(VectorizerMixin):
         analyzed_docs = [' '.join(analyzer(doc)) for doc in X]
         return self._embed_texts(analyzed_docs, **kwargs)
 
-    def fit(self, X):
+    def fit(self, X, y=None):
         return self
 
-    def fit_transform(self, X, **kwargs):
+    def fit_transform(self, X, y=None, **kwargs):
         self.fit(X)
         return self.transform(X, **kwargs)
 
@@ -298,7 +298,7 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
         self.dimensionality_ = _get_dimensionality(word_embeddings)
         self.analyzer = analyzer
 
-    def fit(self, texts):
+    def fit(self, texts, **kwargs):
         vectors = self._embed_texts(texts)
         self.component_analyzer.fit(vectors)
         self.components_ = self.component_analyzer.components_
