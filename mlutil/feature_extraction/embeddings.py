@@ -107,10 +107,47 @@ class TransformerVectorizer:
             yield lst[i:i+batch_size]
 
 
+class FastTextVectorizer:
+
+    def __init__(self, fasttext_model):
+        self.model = fasttext_model
+
+    def transform(self, X, **kwargs):
+        return np.array(
+            [
+                self.model.get_sentence_vector(text)
+                for text in X
+            ]
+        )
+
+    def fit(self, X, y=None):
+        return self
+
+    def fit_transform(self, X, y=None, **kwargs):
+        self.fit(X)
+        return self.transform(X, **kwargs)
+
+
 class EmbeddingVectorizer(VectorizerMixin):
     """
         Base class for word/text embedding wrappers
     """
+    def __init__(self, input='content', encoding='utf-8',
+                 decode_error='strict', strip_accents=None,
+                 lowercase=True, preprocessor=None, tokenizer=None,
+                 stop_words=None, token_pattern=r"(?u)\b\w+\b",
+                 analyzer='word'):
+        self.input = input
+        self.encoding = encoding
+        self.decode_error = decode_error
+        self.strip_accents = strip_accents
+        self.preprocessor = preprocessor
+        self.tokenizer = tokenizer
+        self.lowercase = lowercase
+        self.token_pattern = token_pattern
+        self.stop_words = stop_words
+        self.ngram_range = (1,1)
+        self.analyzer = analyzer
 
     def transform(self, X, **kwargs):
         analyzer = self.build_analyzer()
@@ -222,28 +259,53 @@ class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
         Wrapper for gensim KeyedVectors
     """
 
-    def __init__(self, word_embeddings, average_embeddings=True, input='content', encoding='utf-8',
-                 decode_error='strict', strip_accents=None,
-                 lowercase=True, preprocessor=None, tokenizer=None,
-                 stop_words=None, token_pattern=r"(?u)\b\w+\b",
-                 analyzer='word'):
+    def __init__(self, word_embeddings, average_embeddings=True, **kwargs):
         self.word_embeddings = word_embeddings
-        self.input = input
-        self.encoding = encoding
-        self.decode_error = decode_error
-        self.strip_accents = strip_accents
-        self.preprocessor = preprocessor
-        self.tokenizer = tokenizer
-        self.lowercase = lowercase
-        self.token_pattern = token_pattern
-        self.stop_words = stop_words
-        self.ngram_range = (1,1)
-        self.dimensionality_ = _get_dimensionality(word_embeddings)
         self.average_embeddings = average_embeddings
-        self.analyzer = analyzer
+        self.dimensionality_ = _get_dimensionality(word_embeddings)
+        super(AverageWordEmbeddingsVectorizer, self).__init__(**kwargs)
 
     def _embed_text(self, text):
         embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.wv.vocab.get(w) is not None]
+        if len(embeddings) > 0:
+            if self.average_embeddings:
+                return np.mean(embeddings, axis=0)
+            else:
+                return np.vstack(embeddings)
+        else:
+            return np.zeros((self.dimensionality_,))
+
+    def _embed_texts(self, texts, **kwargs):
+        embeddings = [self._embed_text(text) for text in texts]
+        if self.average_embeddings:
+            return np.vstack(embeddings)
+        else:
+            return embeddings
+
+    @classmethod
+    def from_gensim_embedding_model(cls, model_name='glove-wiki-gigaword-50', **kwargs):
+        word_embeddings = load_gensim_embedding_model(model_name)
+        return AverageWordEmbeddingsVectorizer(word_embeddings, **kwargs)
+
+
+class WeightedAverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
+    """
+        Wrapper for gensim KeyedVectors
+    """
+
+    def __init__(self, word_embeddings, weights, average_embeddings=True, **kwargs):
+        self.word_embeddings = word_embeddings
+        self.average_embeddings = average_embeddings
+        self.weights = weights
+        self.dimensionality_ = _get_dimensionality(word_embeddings)
+        super(WeightedAverageWordEmbeddingsVectorizer, self).__init__(**kwargs)
+
+    def _embed_text(self, text):
+        words = [w
+                 for w in text.split()
+                 if self.word_embeddings.wv.vocab.get(w) and w in self.weights.index
+        ]
+        embeddings = [self.word_embeddings[w] for w in words]
         if len(embeddings) > 0:
             if self.average_embeddings:
                 return np.mean(embeddings, axis=0)
