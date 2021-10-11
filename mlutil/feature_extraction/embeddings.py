@@ -109,10 +109,13 @@ class TransformerVectorizer:
 
 class FastTextVectorizer:
 
-    def __init__(self, fasttext_model):
+    def __init__(self, fasttext_model, lowercase=True):
         self.model = fasttext_model
+        self.lowercase = lowercase
 
     def transform(self, X, **kwargs):
+        if self.lowercase:
+            X = [text.lower() for text in X]
         return np.array(
             [
                 self.model.get_sentence_vector(text)
