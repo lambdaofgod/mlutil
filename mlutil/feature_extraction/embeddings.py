@@ -19,19 +19,25 @@ try:
     import tensorflow as tf
     import tensorflow_hub as hub
 except ImportError as e:
-    logging.warning("tensorflow or tensorflow-hub not found, loading tfhub models won't work")
+    logging.warning(
+        "tensorflow or tensorflow-hub not found, loading tfhub models won't work"
+    )
 
 
 def load_gensim_embedding_model(model_name):
     """
     Load word embeddings (gensim KeyedVectors)
     """
-    available_models = gensim_data_downloader.info()['models'].keys()
-    assert model_name in available_models, 'Invalid model_name: {}. Choose one from {}'.format(model_name, ', '.join(available_models))
+    available_models = gensim_data_downloader.info()["models"].keys()
+    assert (
+        model_name in available_models
+    ), "Invalid model_name: {}. Choose one from {}".format(
+        model_name, ", ".join(available_models)
+    )
 
     # gensim throws some nasty warnings about vocabulary
     with warnings.catch_warnings():
-        warnings.filterwarnings(action='ignore', category=UserWarning, module='gensim')
+        warnings.filterwarnings(action="ignore", category=UserWarning, module="gensim")
         model = gensim_data_downloader.load(model_name)
     return model
 
@@ -45,12 +51,12 @@ def get_tfhub_encoder(url):
             session.run([tf.global_variables_initializer(), tf.tables_initializer()])
             message_embeddings = session.run(tfhub_module(texts))
         return message_embeddings
+
     return encode
 
 
 class TransformerVectorizer:
-
-    def __init__(self, model_type, aggregation='mean', device=0, batch_size=128):
+    def __init__(self, model_type, aggregation="mean", device=0, batch_size=128):
         self.batch_size = batch_size
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_type)
         self.model = transformers.AutoModel.from_pretrained(model_type)
@@ -71,32 +77,43 @@ class TransformerVectorizer:
         return np.row_stack(features)
 
     def transform_batch(self, batch):
-        tokenizer_output = self.tokenizer(batch, return_tensors='pt', padding=True)
-        if self.model.device.type != 'cpu':
+        tokenizer_output = self.tokenizer(batch, return_tensors="pt", padding=True)
+        if self.model.device.type != "cpu":
             tokenizer_output = {
-                k : v.cuda(self.model.device)
-                for (k, v) in tokenizer_output.items()
+                k: v.cuda(self.model.device) for (k, v) in tokenizer_output.items()
             }
         batch_model_output = self.model(**tokenizer_output).last_hidden_state
-        return self.aggregating_function(batch_model_output, tokenizer_output['attention_mask'])
+        return self.aggregating_function(
+            batch_model_output, tokenizer_output["attention_mask"]
+        )
 
     @classmethod
     def get_batch_aggregating_function(cls, aggregation):
         def mean_aggregating_function(batch, attention_mask):
-            return (batch * attention_mask.unsqueeze(2)).sum(axis=1) / attention_mask.sum(axis=1).unsqueeze(1)
+            return (batch * attention_mask.unsqueeze(2)).sum(
+                axis=1
+            ) / attention_mask.sum(axis=1).unsqueeze(1)
+
         def max_aggregating_function(batch, attention_mask):
             return (batch * attention_mask.unsqueeze(2)).max(axis=1).values
+
         def min_aggregating_function(batch, attention_mask):
             return (batch * attention_mask.unsqueeze(2)).min(axis=1).values
+
         def concatpool_aggreggating_function(batch, attention_mask):
             pooled_outputs = [
                 aggregating_function(batch, attention_mask)
-                for aggregating_function in [mean_aggregating_function, max_aggregating_function, min_aggregating_function]
+                for aggregating_function in [
+                    mean_aggregating_function,
+                    max_aggregating_function,
+                    min_aggregating_function,
+                ]
             ]
             return torch.hstack(pooled_outputs)
-        if aggregation == 'mean':
+
+        if aggregation == "mean":
             return mean_aggregating_function
-        elif aggregation == 'max':
+        elif aggregation == "max":
             return min_aggregating_function
         else:
             return concatpool_aggreggating_function
@@ -104,11 +121,10 @@ class TransformerVectorizer:
     @classmethod
     def get_batched_list(cls, lst, batch_size):
         for i in range(0, len(lst), batch_size):
-            yield lst[i:i+batch_size]
+            yield lst[i : i + batch_size]
 
 
 class FastTextVectorizer:
-
     def __init__(self, fasttext_model, lowercase=True):
         self.model = fasttext_model
         self.lowercase = lowercase
@@ -116,12 +132,7 @@ class FastTextVectorizer:
     def transform(self, X, **kwargs):
         if self.lowercase:
             X = [text.lower() for text in X]
-        return np.array(
-            [
-                self.model.get_sentence_vector(text)
-                for text in X
-            ]
-        )
+        return np.array([self.model.get_sentence_vector(text) for text in X])
 
     def fit(self, X, y=None):
         return self
@@ -133,13 +144,22 @@ class FastTextVectorizer:
 
 class EmbeddingVectorizer(VectorizerMixin):
     """
-        Base class for word/text embedding wrappers
+    Base class for word/text embedding wrappers
     """
-    def __init__(self, input='content', encoding='utf-8',
-                 decode_error='strict', strip_accents=None,
-                 lowercase=True, preprocessor=None, tokenizer=None,
-                 stop_words=None, token_pattern=r"(?u)\b\w+\b",
-                 analyzer='word'):
+
+    def __init__(
+        self,
+        input="content",
+        encoding="utf-8",
+        decode_error="strict",
+        strip_accents=None,
+        lowercase=True,
+        preprocessor=None,
+        tokenizer=None,
+        stop_words=None,
+        token_pattern=r"(?u)\b\w+\b",
+        analyzer="word",
+    ):
         self.input = input
         self.encoding = encoding
         self.decode_error = decode_error
@@ -149,12 +169,12 @@ class EmbeddingVectorizer(VectorizerMixin):
         self.lowercase = lowercase
         self.token_pattern = token_pattern
         self.stop_words = stop_words
-        self.ngram_range = (1,1)
+        self.ngram_range = (1, 1)
         self.analyzer = analyzer
 
     def transform(self, X, **kwargs):
         analyzer = self.build_analyzer()
-        analyzed_docs = [' '.join(analyzer(doc)) for doc in X]
+        analyzed_docs = [" ".join(analyzer(doc)) for doc in X]
         return self._embed_texts(analyzed_docs, **kwargs)
 
     def fit(self, X, y=None):
@@ -169,12 +189,20 @@ class EmbeddingVectorizer(VectorizerMixin):
 
 
 class Doc2Vectorizer(EmbeddingVectorizer):
-
-    def __init__(self, doc2vec_model, input='content', encoding='utf-8',
-                 decode_error='strict', strip_accents=None,
-                 lowercase=False, preprocessor=None, tokenizer=None,
-                 stop_words=None, token_pattern=r"(?u)\b\w+\b",
-                 analyzer='word'):
+    def __init__(
+        self,
+        doc2vec_model,
+        input="content",
+        encoding="utf-8",
+        decode_error="strict",
+        strip_accents=None,
+        lowercase=False,
+        preprocessor=None,
+        tokenizer=None,
+        stop_words=None,
+        token_pattern=r"(?u)\b\w+\b",
+        analyzer="word",
+    ):
         self.input = input
         self.encoding = encoding
         self.decode_error = decode_error
@@ -185,29 +213,33 @@ class Doc2Vectorizer(EmbeddingVectorizer):
         self.lowercase = lowercase
         self.token_pattern = token_pattern
         self.stop_words = stop_words
-        self.ngram_range = (1,1)
+        self.ngram_range = (1, 1)
         self.doc2vec_model = doc2vec_model
         self.dimensionality_ = doc2vec_model.trainables.layer1_size
 
     def _embed_texts(self, texts, **kwargs):
-        return np.row_stack(
-            [
-                self.doc2vec_model.infer_vector(t.split())
-                for t in texts
-            ]
-        )
+        return np.row_stack([self.doc2vec_model.infer_vector(t.split()) for t in texts])
 
 
 class TextEncoderVectorizer(EmbeddingVectorizer):
     """
-        Wrapper for Tensorflow Hub Universal Sentence Encoder
+    Wrapper for Tensorflow Hub Universal Sentence Encoder
     """
 
-    def __init__(self, text_encoder, input='content', encoding='utf-8',
-                 decode_error='strict', strip_accents=None,
-                 lowercase=False, preprocessor=None, tokenizer=None,
-                 stop_words=None, token_pattern=r"(?u)\b\w+\b",
-                 analyzer='word'):
+    def __init__(
+        self,
+        text_encoder,
+        input="content",
+        encoding="utf-8",
+        decode_error="strict",
+        strip_accents=None,
+        lowercase=False,
+        preprocessor=None,
+        tokenizer=None,
+        stop_words=None,
+        token_pattern=r"(?u)\b\w+\b",
+        analyzer="word",
+    ):
         self.text_encoder = text_encoder
         self.input = input
         self.encoding = encoding
@@ -219,29 +251,31 @@ class TextEncoderVectorizer(EmbeddingVectorizer):
         self.lowercase = lowercase
         self.token_pattern = token_pattern
         self.stop_words = stop_words
-        self.ngram_range = (1,1)
+        self.ngram_range = (1, 1)
 
     def _embed_texts(self, texts, batch_size=256, **kwargs):
         texts_chunked = TextEncoderVectorizer.iter_chunks(texts, chunk_size=batch_size)
-        return np.vstack([self.text_encoder(text_chunk) for text_chunk in texts_chunked])
+        return np.vstack(
+            [self.text_encoder(text_chunk) for text_chunk in texts_chunked]
+        )
 
     @staticmethod
-    def from_tfhub_encoder(tfhub_encoder='large', **kwargs):
+    def from_tfhub_encoder(tfhub_encoder="large", **kwargs):
         if type(tfhub_encoder) is str:
             if os.path.exists(tfhub_encoder):
                 encoder = get_tfhub_encoder(tfhub_encoder)
-            elif tfhub_encoder == 'small':
-                url = 'https://tfhub.dev/google/universal-sentence-encoder/2'
+            elif tfhub_encoder == "small":
+                url = "https://tfhub.dev/google/universal-sentence-encoder/2"
                 encoder = get_tfhub_encoder(url)
-            elif tfhub_encoder == 'large':
-                url = 'https://tfhub.dev/google/universal-sentence-encoder-large/3'
+            elif tfhub_encoder == "large":
+                url = "https://tfhub.dev/google/universal-sentence-encoder-large/3"
                 encoder = get_tfhub_encoder(url)
             else:
-                raise ValueError('Invalid TFHub encoder name or URL')
+                raise ValueError("Invalid TFHub encoder name or URL")
         elif type(tfhub_encoder) is hub.Module:
             encoder = tfhub_encoder
         else:
-            raise ValueError('Invalid TFHub encoder')
+            raise ValueError("Invalid TFHub encoder")
         return TextEncoderVectorizer(encoder, **kwargs)
 
     @staticmethod
@@ -256,10 +290,9 @@ class TextEncoderVectorizer(EmbeddingVectorizer):
             yield res
 
 
-
 class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
     """
-        Wrapper for gensim KeyedVectors
+    Wrapper for gensim KeyedVectors
     """
 
     def __init__(self, word_embeddings, average_embeddings=True, **kwargs):
@@ -269,7 +302,11 @@ class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
         super(AverageWordEmbeddingsVectorizer, self).__init__(**kwargs)
 
     def _embed_text(self, text):
-        embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.wv.vocab.get(w) is not None]
+        embeddings = [
+            self.word_embeddings[w]
+            for w in text.split()
+            if self.word_embeddings.wv.vocab.get(w) is not None
+        ]
         if len(embeddings) > 0:
             if self.average_embeddings:
                 return np.mean(embeddings, axis=0)
@@ -286,14 +323,14 @@ class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
             return embeddings
 
     @classmethod
-    def from_gensim_embedding_model(cls, model_name='glove-wiki-gigaword-50', **kwargs):
+    def from_gensim_embedding_model(cls, model_name="glove-wiki-gigaword-50", **kwargs):
         word_embeddings = load_gensim_embedding_model(model_name)
         return AverageWordEmbeddingsVectorizer(word_embeddings, **kwargs)
 
 
 class WeightedAverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
     """
-        Wrapper for gensim KeyedVectors
+    Wrapper for gensim KeyedVectors
     """
 
     def __init__(self, word_embeddings, weights, average_embeddings=True, **kwargs):
@@ -304,9 +341,10 @@ class WeightedAverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
         super(WeightedAverageWordEmbeddingsVectorizer, self).__init__(**kwargs)
 
     def _embed_text(self, text):
-        words = [w
-                 for w in text.split()
-                 if self.word_embeddings.wv.vocab.get(w) and w in self.weights.index
+        words = [
+            w
+            for w in text.split()
+            if self.word_embeddings.wv.vocab.get(w) and w in self.weights.index
         ]
         embeddings = [self.word_embeddings[w] for w in words]
         if len(embeddings) > 0:
@@ -325,30 +363,41 @@ class WeightedAverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
             return embeddings
 
     @classmethod
-    def from_gensim_embedding_model(cls, model_name='glove-wiki-gigaword-50', **kwargs):
+    def from_gensim_embedding_model(cls, model_name="glove-wiki-gigaword-50", **kwargs):
         word_embeddings = load_gensim_embedding_model(model_name)
         return AverageWordEmbeddingsVectorizer(word_embeddings, **kwargs)
 
 
 class PCREmbeddingVectorizer(EmbeddingVectorizer):
     """
-        sentence embedding with principal component removal
-        the idea comes from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
-        also see 'A Critique of the Smooth Inverse Frequency Sentence Embeddings' 
+    sentence embedding with principal component removal
+    the idea comes from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
+    also see 'A Critique of the Smooth Inverse Frequency Sentence Embeddings'
     """
+
     def __init__(
-            self,
-            word_embeddings,
-            component_analyzer=None,
-            average_embeddings=True,
-            input='content', encoding='utf-8',
-            decode_error='strict', strip_accents=None,
-            lowercase=True, preprocessor=None, tokenizer=None,
-            stop_words=None, token_pattern=r"(?u)\b\w+\b",
-            analyzer='word'):
-        self.component_analyzer = component_analyzer if not component_analyzer is None else decomposition.TruncatedSVD(n_components=1)
+        self,
+        word_embeddings,
+        component_analyzer=None,
+        average_embeddings=True,
+        input="content",
+        encoding="utf-8",
+        decode_error="strict",
+        strip_accents=None,
+        lowercase=True,
+        preprocessor=None,
+        tokenizer=None,
+        stop_words=None,
+        token_pattern=r"(?u)\b\w+\b",
+        analyzer="word",
+    ):
+        self.component_analyzer = (
+            component_analyzer
+            if not component_analyzer is None
+            else decomposition.TruncatedSVD(n_components=1)
+        )
         self.word_embeddings = word_embeddings
-        self.average_embeddings=True,
+        self.average_embeddings = (True,)
         self.input = input
         self.encoding = encoding
         self.decode_error = decode_error
@@ -359,7 +408,7 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
         self.lowercase = lowercase
         self.token_pattern = token_pattern
         self.stop_words = stop_words
-        self.ngram_range = (1,1)
+        self.ngram_range = (1, 1)
         self.dimensionality_ = _get_dimensionality(word_embeddings)
         self.analyzer = analyzer
 
@@ -374,7 +423,11 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
         return vectors - self.component_analyzer.inverse_transform(deleted_components)
 
     def _embed_text(self, text):
-        embeddings = [self.word_embeddings[w] for w in text.split() if self.word_embeddings.vocab.get(w) is not None]
+        embeddings = [
+            self.word_embeddings[w]
+            for w in text.split()
+            if self.word_embeddings.vocab.get(w) is not None
+        ]
         if len(embeddings) > 0:
             if self.average_embeddings:
                 return np.mean(embeddings, axis=0)
@@ -393,7 +446,7 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
     @classmethod
     def _get_vectors_or_default(cls, word_embeddings, words, default=None):
         if default is None:
-            default = np.zeros(word_embeddings['.'].shape)
+            default = np.zeros(word_embeddings["."].shape)
 
         if len(words) > 0:
             return np.vstack([word_embeddings[w] for w in words])
@@ -403,7 +456,7 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
 
 class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
     """
-        sentence embedding by Smooth Inverse Frequency weighting scheme from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
+    sentence embedding by Smooth Inverse Frequency weighting scheme from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
     """
 
     def __init__(self, count_vectorizer, a=0.01, **kwargs):
@@ -412,16 +465,22 @@ class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
         self.a = a
 
     def fit(self, a=None):
-        if not hasattr(self.count_vectorizer, 'vocabulary_'):
+        if not hasattr(self.count_vectorizer, "vocabulary_"):
             self.count_vectorizer.fit(texts)
         vectors = self._embed_texts(texts, a=a)
         self.component_analyzer.fit(vectors)
 
     def _embed_text(self, text):
         words = self.analyzer(text)
-        filtered_words = [word for word in words if word in self.word_embeddings.wv.vocab.keys()]
-        word_vectors = self._get_vectors_or_default(self.word_embeddings, filtered_words)
-        smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(filtered_words, self.count_vectorizer)
+        filtered_words = [
+            word for word in words if word in self.word_embeddings.wv.vocab.keys()
+        ]
+        word_vectors = self._get_vectors_or_default(
+            self.word_embeddings, filtered_words
+        )
+        smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(
+            filtered_words, self.count_vectorizer
+        )
         return (word_vectors * smoothed_word_frequencies).sum(axis=0)
 
     @classmethod

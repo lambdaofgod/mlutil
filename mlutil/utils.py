@@ -4,7 +4,6 @@ import pickle
 
 
 class maybe_csv_writer:
-
     def __init__(self, csv_path):
         self.csv_path = csv_path
 
@@ -28,7 +27,6 @@ class maybe_csv_writer:
 
 
 class maybe_pickler:
-
     def __init__(self, pickle_path, pickler=pickle):
         self.pickle_path = pickle_path
         self.pickler = pickle
@@ -38,7 +36,7 @@ class maybe_pickler:
 
     def write_pickle_if_not_exists(self, get_object):
         if not os.path.exists(self.pickle_path):
-                self.pickler.dump(get_object(), f)
+            self.pickler.dump(get_object(), f)
         else:
             logging.warning("{} already exists".format(self.pickle_path))
 
@@ -46,7 +44,7 @@ class maybe_pickler:
         if not os.path.exists(self.pickle_path):
             return get_object()
         else:
-            with open(self.pickle_path, 'rb') as f:
+            with open(self.pickle_path, "rb") as f:
                 return pickle.load(f)
 
     def __exit__(self, *args):

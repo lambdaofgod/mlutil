@@ -4,8 +4,7 @@ import numpy as np
 
 
 class CompressedKeyedVectors(object):
-
-    def __init__(self, vocab_path: str, embedding_path: str, to_lowercase: bool=True):
+    def __init__(self, vocab_path: str, embedding_path: str, to_lowercase: bool = True):
         """
         Class from sdadas polish-nlp-resources
         https://github.com/sdadas/polish-nlp-resources
@@ -25,14 +24,17 @@ class CompressedKeyedVectors(object):
     def __load_vocab(self, vocab_path: str) -> Dict[str, int]:
         open_func: Callable = gzip.open if vocab_path.endswith(".gz") else open
         with open_func(vocab_path, "rt", encoding="utf-8") as input_file:
-            return {line.strip():idx for idx, line in enumerate(input_file)}
+            return {line.strip(): idx for idx, line in enumerate(input_file)}
 
     def vocab_vector(self, word: str):
-        if word == "<pad>": return np.zeros(self.dim)
+        if word == "<pad>":
+            return np.zeros(self.dim)
         val: str = word.lower() if self.to_lower else word
         index: int = self.vocab.get(val, self.vocab["<unk>"])
         codes = self.codes[index]
-        code_indices = np.array([idx * self.k + offset for idx, offset in enumerate(np.nditer(codes))])
+        code_indices = np.array(
+            [idx * self.k + offset for idx, offset in enumerate(np.nditer(codes))]
+        )
         return np.sum(self.codebook[code_indices], axis=0)
 
     def __getitem__(self, key):

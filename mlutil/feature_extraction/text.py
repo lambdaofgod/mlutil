@@ -12,6 +12,7 @@ from sklearn.utils.validation import check_is_fitted
 # Sklearn's Vectorizer mixin from FIX remove lambdas from text preprocessing #14430
 # This should be made redundant when the appropriate PR is merged (in sklearn 21.3?)
 
+
 def _preprocess(doc, accent_function=None, lower=False):
     """Chain together an optional series of text preprocessing steps to
     apply to a document.
@@ -36,8 +37,15 @@ def _preprocess(doc, accent_function=None, lower=False):
     return doc
 
 
-def _analyze(doc, analyzer=None, tokenizer=None, ngrams=None,
-             preprocessor=None, decoder=None, stop_words=None):
+def _analyze(
+    doc,
+    analyzer=None,
+    tokenizer=None,
+    ngrams=None,
+    preprocessor=None,
+    decoder=None,
+    stop_words=None,
+):
     """Chain together an optional series of text processing steps to go from
     a single document to ngrams, with or without tokenizing or preprocessing.
     If analyzer is used, only the decoder argument is used, as the analyzer is
@@ -88,11 +96,11 @@ def strip_accents_unicode(s):
         Remove accentuated char for any unicode symbol that has a direct
         ASCII equivalent.
     """
-    normalized = unicodedata.normalize('NFKD', s)
+    normalized = unicodedata.normalize("NFKD", s)
     if normalized == s:
         return s
     else:
-        return ''.join([c for c in normalized if not unicodedata.combining(c)])
+        return "".join([c for c in normalized if not unicodedata.combining(c)])
 
 
 def strip_accents_ascii(s):
@@ -108,8 +116,8 @@ def strip_accents_ascii(s):
     strip_accents_unicode
         Remove accentuated char for any unicode symbol.
     """
-    nkfd_form = unicodedata.normalize('NFKD', s)
-    return nkfd_form.encode('ASCII', 'ignore').decode('ASCII')
+    nkfd_form = unicodedata.normalize("NFKD", s)
+    return nkfd_form.encode("ASCII", "ignore").decode("ASCII")
 
 
 def strip_tags(s):
@@ -126,7 +134,7 @@ def strip_tags(s):
 
 def _check_stop_list(stop):
     if stop == "english":
-        return stopwords.get_stop_words('en') 
+        return stopwords.get_stop_words("en")
     elif isinstance(stop, str):
         raise ValueError("not a built-in stop list: %s" % stop)
     elif stop is None:
@@ -148,19 +156,20 @@ class VectorizerMixin:
         doc : string
             The string to decode
         """
-        if self.input == 'filename':
-            with open(doc, 'rb') as fh:
+        if self.input == "filename":
+            with open(doc, "rb") as fh:
                 doc = fh.read()
 
-        elif self.input == 'file':
+        elif self.input == "file":
             doc = doc.read()
 
         if isinstance(doc, bytes):
             doc = doc.decode(self.encoding, self.decode_error)
 
         if doc is np.nan:
-            raise ValueError("np.nan is an invalid document, expected byte or "
-                             "unicode string.")
+            raise ValueError(
+                "np.nan is an invalid document, expected byte or " "unicode string."
+            )
 
         return doc
 
@@ -188,10 +197,9 @@ class VectorizerMixin:
             tokens_append = tokens.append
             space_join = " ".join
 
-            for n in range(min_n,
-                           min(max_n + 1, n_original_tokens + 1)):
+            for n in range(min_n, min(max_n + 1, n_original_tokens + 1)):
                 for i in range(n_original_tokens - n + 1):
-                    tokens_append(space_join(original_tokens[i: i + n]))
+                    tokens_append(space_join(original_tokens[i : i + n]))
 
         return tokens
 
@@ -215,7 +223,7 @@ class VectorizerMixin:
 
         for n in range(min_n, min(max_n + 1, text_len + 1)):
             for i in range(text_len - n + 1):
-                ngrams_append(text_document[i: i + n])
+                ngrams_append(text_document[i : i + n])
         return ngrams
 
     def _char_wb_ngrams(self, text_document):
@@ -233,15 +241,15 @@ class VectorizerMixin:
         ngrams_append = ngrams.append
 
         for w in text_document.split():
-            w = ' ' + w + ' '
+            w = " " + w + " "
             w_len = len(w)
             for n in range(min_n, max_n + 1):
                 offset = 0
-                ngrams_append(w[offset:offset + n])
+                ngrams_append(w[offset : offset + n])
                 while offset + n < w_len:
                     offset += 1
-                    ngrams_append(w[offset:offset + n])
-                if offset == 0:   # count a short word (w_len < n) only once
+                    ngrams_append(w[offset : offset + n])
+                if offset == 0:  # count a short word (w_len < n) only once
                     break
         return ngrams
 
@@ -255,17 +263,16 @@ class VectorizerMixin:
             strip_accents = None
         elif callable(self.strip_accents):
             strip_accents = self.strip_accents
-        elif self.strip_accents == 'ascii':
+        elif self.strip_accents == "ascii":
             strip_accents = strip_accents_ascii
-        elif self.strip_accents == 'unicode':
+        elif self.strip_accents == "unicode":
             strip_accents = strip_accents_unicode
         else:
-            raise ValueError('Invalid value for "strip_accents": %s' %
-                             self.strip_accents)
+            raise ValueError(
+                'Invalid value for "strip_accents": %s' % self.strip_accents
+            )
 
-        return partial(
-            _preprocess, accent_function=strip_accents, lower=self.lowercase
-        )
+        return partial(_preprocess, accent_function=strip_accents, lower=self.lowercase)
 
     def build_tokenizer(self):
         """Return a function that splits a string into a sequence of tokens"""
@@ -288,7 +295,7 @@ class VectorizerMixin:
                         performed (e.g. because of the use of a custom
                         preprocessor / tokenizer)
         """
-        if id(self.stop_words) == getattr(self, '_stop_words_id', None):
+        if id(self.stop_words) == getattr(self, "_stop_words_id", None):
             # Stop words are were previously validated
             return None
 
@@ -303,29 +310,34 @@ class VectorizerMixin:
             self._stop_words_id = id(self.stop_words)
 
             if inconsistent:
-                warnings.warn('Your stop_words may be inconsistent with '
-                              'your preprocessing. Tokenizing the stop '
-                              'words generated tokens %r not in '
-                              'stop_words.' % sorted(inconsistent))
+                warnings.warn(
+                    "Your stop_words may be inconsistent with "
+                    "your preprocessing. Tokenizing the stop "
+                    "words generated tokens %r not in "
+                    "stop_words." % sorted(inconsistent)
+                )
             return not inconsistent
         except Exception:
             # Failed to check stop words consistency (e.g. because a custom
             # preprocessor or tokenizer was used)
             self._stop_words_id = id(self.stop_words)
-            return 'error'
+            return "error"
 
     def _validate_custom_analyzer(self):
         # This is to check if the given custom analyzer expects file or a
         # filename instead of data.
         # Behavior changed in v0.21, function could be removed in v0.23
         import tempfile
+
         with tempfile.NamedTemporaryFile() as f:
             fname = f.name
         # now we're sure fname doesn't exist
 
-        msg = ("Since v0.21, vectorizers pass the data to the custom analyzer "
-               "and not the file names or the file objects. This warning "
-               "will be removed in v0.23.")
+        msg = (
+            "Since v0.21, vectorizers pass the data to the custom analyzer "
+            "and not the file names or the file objects. This warning "
+            "will be removed in v0.23."
+        )
         try:
             self.analyzer(fname)
         except FileNotFoundError:
@@ -341,34 +353,45 @@ class VectorizerMixin:
         and n-grams generation.
         """
         if callable(self.analyzer):
-            if self.input in ['file', 'filename']:
+            if self.input in ["file", "filename"]:
                 self._validate_custom_analyzer()
-            return partial(
-                _analyze, analyzer=self.analyzer, decoder=self.decode
-            )
+            return partial(_analyze, analyzer=self.analyzer, decoder=self.decode)
 
         preprocess = self.build_preprocessor()
 
-        if self.analyzer == 'char':
-            return partial(_analyze, ngrams=self._char_ngrams,
-                           preprocessor=preprocess, decoder=self.decode)
+        if self.analyzer == "char":
+            return partial(
+                _analyze,
+                ngrams=self._char_ngrams,
+                preprocessor=preprocess,
+                decoder=self.decode,
+            )
 
-        elif self.analyzer == 'char_wb':
-            return partial(_analyze, ngrams=self._char_wb_ngrams,
-                           preprocessor=preprocess, decoder=self.decode)
+        elif self.analyzer == "char_wb":
+            return partial(
+                _analyze,
+                ngrams=self._char_wb_ngrams,
+                preprocessor=preprocess,
+                decoder=self.decode,
+            )
 
-        elif self.analyzer == 'word':
+        elif self.analyzer == "word":
             stop_words = self.get_stop_words()
             tokenize = self.build_tokenizer()
-            self._check_stop_words_consistency(stop_words, preprocess,
-                                               tokenize)
-            return partial(_analyze, ngrams=self._word_ngrams,
-                           tokenizer=tokenize, preprocessor=preprocess,
-                           decoder=self.decode, stop_words=stop_words)
+            self._check_stop_words_consistency(stop_words, preprocess, tokenize)
+            return partial(
+                _analyze,
+                ngrams=self._word_ngrams,
+                tokenizer=tokenize,
+                preprocessor=preprocess,
+                decoder=self.decode,
+                stop_words=stop_words,
+            )
 
         else:
-            raise ValueError('%s is not a valid tokenization scheme/analyzer' %
-                             self.analyzer)
+            raise ValueError(
+                "%s is not a valid tokenization scheme/analyzer" % self.analyzer
+            )
 
     def _validate_vocabulary(self):
         vocabulary = self.vocabulary
@@ -388,8 +411,10 @@ class VectorizerMixin:
                     raise ValueError("Vocabulary contains repeated indices.")
                 for i in range(len(vocabulary)):
                     if i not in indices:
-                        msg = ("Vocabulary of size %d doesn't contain index "
-                               "%d." % (len(vocabulary), i))
+                        msg = "Vocabulary of size %d doesn't contain index " "%d." % (
+                            len(vocabulary),
+                            i,
+                        )
                         raise ValueError(msg)
             if not vocabulary:
                 raise ValueError("empty vocabulary passed to fit")
@@ -401,7 +426,7 @@ class VectorizerMixin:
     def _check_vocabulary(self):
         """Check if vocabulary is empty or missing (not fit-ed)"""
         msg = "%(name)s - Vocabulary wasn't fitted."
-        check_is_fitted(self, 'vocabulary_', msg=msg),
+        check_is_fitted(self, "vocabulary_", msg=msg),
 
         if len(self.vocabulary_) == 0:
             raise ValueError("Vocabulary is empty")
@@ -412,5 +437,5 @@ class VectorizerMixin:
         if min_n > max_m:
             raise ValueError(
                 "Invalid value for ngram_range=%s "
-                "lower boundary larger than the upper boundary."
-                % str(self.ngram_range))
+                "lower boundary larger than the upper boundary." % str(self.ngram_range)
+            )

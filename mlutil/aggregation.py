@@ -11,6 +11,7 @@ class ClusteringGroupSubsampler:
     (it might be that n < max_vectors
     if the matrix is rank-deficient, or group has less than max_vectors elements)
     """
+
     vectors = attr.ib()
     group_ids = attr.ib()
     max_vectors: int = attr.ib(default=10)
@@ -27,5 +28,7 @@ class ClusteringGroupSubsampler:
         aggregated_vectors = {}
         for group_name in tqdm.tqdm(unique_group_ids):
             group_vectors = self.vectors[self.group_ids == group_name]
-            aggregated_vectors[group_name] = self.get_group_aggregated_vectors(group_name)
+            aggregated_vectors[group_name] = self.get_group_aggregated_vectors(
+                group_name
+            )
         return aggregated_vectors
