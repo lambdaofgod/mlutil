@@ -4,6 +4,7 @@ import torch
 from torch import nn
 import tqdm
 from PIL import Image
+from typing import Union, List
 
 
 imagenet_normalize = transforms.Normalize(
@@ -28,14 +29,16 @@ class TorchFeatureExtractor:
         self.model = self.get_layers(model, last_nested_index, last_layers)
         self.scaler = transforms.Scale((img_size, img_size))
 
-    def load_img(self, path):
-        img = Image.open(path)
-        torch_img = self.normalize(transforms.ToTensor()(self.scaler(img)))
-        return torch.autograd.Variable(torch_img.unsqueeze(0))
 
-    def get_vector(self, image):
-        img = self.maybe_to_cuda(load_img(p))
-        return self.model(img).cpu().numpy()
+    def load_img_tensor(self, path):
+        img = Image.fromarray(path)
+        return self.process_img(img)
+
+    def process_img(self, img: Union[np.ndarray, Image.Image]):
+        if type(img) is np.ndarray:
+            img = Image.fromarray(img)
+        torch_img = self.normalize(transforms.ToTensor()(self.scaler(img)))
+        return self.maybe_to_cuda(torch_img.unsqueeze(0))
 
     def maybe_to_cuda(self, torch_object):
         if self.use_gpu:
@@ -44,11 +47,11 @@ class TorchFeatureExtractor:
             torch_object = torch_object.half()
         return torch_object
 
-    def get_features(self, images, use_tqdm=True):
+    def get_features(self, images: List[Union[Image.Image, np.ndarray]], use_tqdm=True):
         tqdm_wrapper = tqdm.tqdm if use_tqdm else lambda x: x
         features = []
         for img in tqdm_wrapper(images):
-            img = self.maybe_to_cuda(img)
+            img = self.process_img(img)
             img_features = self.model(img)
             features.append(img_features.cpu().numpy())
         return np.vstack(features)

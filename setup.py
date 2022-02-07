@@ -6,7 +6,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='mlutil',
-    version='0.22',
+    version='0.2237',
     description='Python helpers for common ml tasks',
     url='https://github.com/lambdaofgod/mlutils',
     author='Jakub Bartczuk',
