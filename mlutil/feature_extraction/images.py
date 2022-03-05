@@ -30,8 +30,8 @@ class TorchFeatureExtractor:
         self.model = self.get_layers(
             model,
             appended_modules=appended_modules,
-            last_nested_layer_index=last_layer_index,
             last_layer_index=last_layer_index,
+            last_nested_layer_index=last_nested_layer_index,
         )
         self.scaler = transforms.Scale((img_size, img_size))
         self.torch_transforms = [transforms.ToTensor(), self.scaler, self.normalize]
@@ -84,6 +84,7 @@ class TorchFeatureExtractor:
     def get_layers(
         self, model, appended_modules, last_layer_index, last_nested_layer_index
     ):
+        model = model.eval()
         modules = list(model.children())[:last_layer_index]
         if last_nested_layer_index is not None:
             last_module = list(model.children())[-1]
