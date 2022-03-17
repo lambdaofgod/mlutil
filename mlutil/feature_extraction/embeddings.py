@@ -427,7 +427,7 @@ try:
     import sentence_transformers
 
     @attr.s
-    class SBERTModelWrapper:
+    class SentenceTransformerWrapper:
 
         model: sentence_transformers.SentenceTransformer = attr.ib()
 
