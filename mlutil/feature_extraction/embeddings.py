@@ -2,26 +2,15 @@ import itertools
 import logging
 import os
 import warnings
-import transformers
-import numpy as np
-import tqdm
 
-import torch
-
-
+import attr
 import gensim.downloader as gensim_data_downloader
 import numpy as np
-from sklearn import decomposition
+import torch
+import tqdm
+import transformers
 from mlutil.feature_extraction.text import VectorizerMixin
-
-
-try:
-    import tensorflow as tf
-    import tensorflow_hub as hub
-except ImportError as e:
-    logging.warning(
-        "tensorflow or tensorflow-hub not found, loading tfhub models won't work"
-    )
+from sklearn import decomposition
 
 
 def load_gensim_embedding_model(model_name):
@@ -43,6 +32,13 @@ def load_gensim_embedding_model(model_name):
 
 
 def get_tfhub_encoder(url):
+    try:
+        import tensorflow as tf
+        import tensorflow_hub as hub
+    except ImportError as e:
+        logging.warning(
+            "tensorflow or tensorflow-hub not found, loading tfhub models won't work"
+        )
 
     tfhub_module = hub.Module(url)
 
@@ -425,3 +421,22 @@ def _get_dimensionality(word_embeddings):
     example_key = list(itertools.islice(word_embeddings.wv.vocab, 1))[0]
     vector = word_embeddings[example_key]
     return vector.shape[0]
+
+
+try:
+    import sentence_transformers
+
+    @attr.s
+    class SBERTModelWrapper:
+
+        model: sentence_transformers.SentenceTransformer = attr.ib()
+
+        def fit(self, *args, **kwargs):
+            pass
+
+        def transform(self, X):
+            return self.model.encode(X.values)
+
+
+except ImportError as e:
+    logging.warning("sentence_transformers not found, cannot import SBERTModelWrapper")
