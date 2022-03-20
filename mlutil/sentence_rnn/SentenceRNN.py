@@ -4,17 +4,23 @@ LSTM from sentence_transformers
 I needed to copy this code because newer torch versions required a fix to pack_padded_sequence
 and pull request I made to fix it seems stuck for a month
 https://github.com/UKPLab/sentence-transformers/pull/1420
+
+Added: different RNN type
 """
 import torch
 from torch import nn
 from typing import List
 import os
 import json
+import sru
 
 
-class LSTM(nn.Module):
+rnn_class_type_mapping = {"lstm": nn.LSTM, "sru": sru.SRU}
+
+
+class SentenceRNN(nn.Module):
     """
-    Bidirectional LSTM running over word embeddings.
+    sentence_transformers RNN wrapper
     """
 
     def __init__(
@@ -24,6 +30,7 @@ class LSTM(nn.Module):
         num_layers: int = 1,
         dropout: float = 0,
         bidirectional: bool = True,
+        rnn_class_type="lstm",
     ):
         nn.Module.__init__(self)
         self.config_keys = [
@@ -32,7 +39,10 @@ class LSTM(nn.Module):
             "num_layers",
             "dropout",
             "bidirectional",
+            "rnn_class_type",
         ]
+        self.rnn_class_type = rnn_class_type
+        rnn_class = rnn_class_type_mapping[rnn_class_type]
         self.word_embedding_dimension = word_embedding_dimension
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
@@ -43,13 +53,12 @@ class LSTM(nn.Module):
         if self.bidirectional:
             self.embeddings_dimension *= 2
 
-        self.encoder = nn.LSTM(
+        self.encoder = rnn_class(
             word_embedding_dimension,
             hidden_dim,
             num_layers=num_layers,
             dropout=dropout,
             bidirectional=bidirectional,
-            batch_first=True,
         )
 
     def forward(self, features):
@@ -74,7 +83,7 @@ class LSTM(nn.Module):
         raise NotImplementedError()
 
     def save(self, output_path: str):
-        with open(os.path.join(output_path, "lstm_config.json"), "w") as fOut:
+        with open(os.path.join(output_path, "rnn_config.json"), "w") as fOut:
             json.dump(self.get_config_dict(), fOut, indent=2)
 
         torch.save(self.state_dict(), os.path.join(output_path, "pytorch_model.bin"))
@@ -84,10 +93,10 @@ class LSTM(nn.Module):
 
     @staticmethod
     def load(input_path: str):
-        with open(os.path.join(input_path, "lstm_config.json"), "r") as fIn:
+        with open(os.path.join(input_path, "rnn_config.json"), "r") as fIn:
             config = json.load(fIn)
 
         weights = torch.load(os.path.join(input_path, "pytorch_model.bin"))
-        model = LSTM(**config)
+        model = SentenceRNN(**config)
         model.load_state_dict(weights)
         return model
