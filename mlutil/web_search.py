@@ -14,6 +14,55 @@ EngineCategoriesVar = Optional[List[str]]
 searx.search.initialize()
 
 
+def get_searx_results(
+    query,
+    category: str = "general",
+    pageno: str = 1,
+    lang: str = "all",
+    timerange: str = "any",
+    safesearch: str = "0",
+    only_results: bool = True,  # return only website results and not answers, infoboxes
+    **kwargs
+):
+
+    engine_cs = list(searx.engines.categories.keys())
+    search_results = _get_search_query(
+        query,
+        category,
+        pageno,
+        lang,
+        timerange,
+        safesearch,
+        engine_categories=engine_cs,
+    )
+    res_dict = _to_dict(search_results)
+    if only_results:
+        return res_dict["results"]
+    else:
+        return res_dict
+
+
+def get_searx_definition(query, **kwargs):
+    results = get_searx_results(query, only_results=False, **kwargs)
+    definition_results = get_searx_results(
+        "define " + query, only_results=False, **kwargs
+    )
+    has_answer = len(results["answers"])
+    wikipedia_results = get_wiki_results(results) + get_wiki_results(definition_results)
+    has_wikipedia_definition = len(wikipedia_results) > 0
+    if has_answer:
+        answer = results["answers"][0]
+        return answer
+    elif has_wikipedia_definition:
+        return wikipedia_results[0]["content"]
+    else:
+        return definition_results[0]["content"]
+
+
+def get_wiki_results(results):
+    return [res for res in results["results"] if "wikipedia" in res["url"]]
+
+
 def _get_search_query(
     query: str,
     category: str = "general",
@@ -74,66 +123,3 @@ def _no_parsed_url(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for result in results:
         del result["parsed_url"]
     return results
-
-
-def json_serial(obj: Any) -> Any:
-    """JSON serializer for objects not serializable by default json code.
-    :raise TypeError: raised when **obj** is not serializable
-    """
-    if isinstance(obj, datetime):
-        serial = obj.isoformat()
-        return serial
-    if isinstance(obj, bytes):
-        return obj.decode("utf8")
-    if isinstance(obj, set):
-        return list(obj)
-    raise TypeError("Type ({}) not serializable".format(type(obj)))
-
-
-def get_searx_results(
-    query,
-    category: str = "general",
-    pageno: str = 1,
-    lang: str = "all",
-    timerange: str = "any",
-    safesearch: str = "0",
-    only_results=True,
-    **kwargs
-):
-
-    engine_cs = list(searx.engines.categories.keys())
-    search_results = _get_search_query(
-        query,
-        category,
-        pageno,
-        lang,
-        timerange,
-        safesearch,
-        engine_categories=engine_cs,
-    )
-    res_dict = _to_dict(search_results)
-    if only_results:
-        return res_dict["results"]
-    else:
-        return res_dict
-
-
-def get_wiki_results(results):
-    return [res for res in results["results"] if "wikipedia" in res["url"]]
-
-
-def get_searx_definition(query, **kwargs):
-    results = get_searx_results(query, only_results=False, **kwargs)
-    definition_results = get_searx_results(
-        "define " + query, only_results=False, **kwargs
-    )
-    has_answer = len(results["answers"])
-    wikipedia_results = get_wiki_results(results) + get_wiki_results(definition_results)
-    has_wikipedia_definition = len(wikipedia_results) > 0
-    if has_answer:
-        answer = results["answers"][0]
-        return answer
-    elif has_wikipedia_definition:
-        return wikipedia_results[0]["content"]
-    else:
-        return definition_results[0]["content"]
