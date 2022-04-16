@@ -17,12 +17,12 @@ searx.search.initialize()
 def get_searx_results(
     query,
     category: str = "general",
-    pageno: str = 1,
+    pageno: int = 1,
     lang: str = "all",
     timerange: str = "any",
     safesearch: str = "0",
-    only_results: bool = True,  # return only website results and not answers, infoboxes
-    **kwargs
+    only_results: bool = False,  # if True return only website results and not answers, infoboxes,
+    engines: str = "google brave duckduckgo",
 ):
 
     engine_cs = list(searx.engines.categories.keys())
@@ -34,6 +34,7 @@ def get_searx_results(
         timerange,
         safesearch,
         engine_categories=engine_cs,
+        engines=engines,
     )
     res_dict = _to_dict(search_results)
     if only_results:
@@ -43,20 +44,22 @@ def get_searx_results(
 
 
 def get_searx_definition(query, **kwargs):
-    results = get_searx_results(query, only_results=False, **kwargs)
+    results = get_searx_results(query, only_results=False, engines="google", **kwargs)
     definition_results = get_searx_results(
-        "define " + query, only_results=False, **kwargs
+        "define " + query, only_results=False, engines="brave",**kwargs
     )
     has_answer = len(results["answers"])
     wikipedia_results = get_wiki_results(results) + get_wiki_results(definition_results)
     has_wikipedia_definition = len(wikipedia_results) > 0
+    all_results = definition_results["results"] + results["results"]
+    has_results = has_answer or has_wikipedia_definition or len(all_results) > 0
     if has_answer:
         answer = results["answers"][0]
         return answer
     elif has_wikipedia_definition:
         return wikipedia_results[0]["content"]
     else:
-        return definition_results[0]["content"]
+        return all_results[0]["content"]
 
 
 def get_wiki_results(results):
@@ -66,25 +69,23 @@ def get_wiki_results(results):
 def _get_search_query(
     query: str,
     category: str = "general",
-    pageno: str = 1,
+    pageno: int = 1,
     lang: str = "all",
     timerange: str = "week",
     safesearch: str = "0",
     engine_categories: EngineCategoriesVar = None,
+    engines: str = "google brave duckduckgo",
 ) -> searx.search.SearchQuery:
     """Get  search results for the query"""
     if engine_categories is None:
         engine_categories = list(searx.engines.categories.keys())
-    try:
-        category = category.decode("utf-8")
-    except AttributeError:
-        category = category
+    category = category
     form = {
         "q": query,
         "categories": category,
         "pageno": str(pageno),
         "language": lang,
-        "engines": "google brave duckduckgo",
+        "engines": engines,
     }
     if timerange:
         form["timerange"] = timerange
