@@ -8,3 +8,4 @@ pytest
 seaborn
 stop-words
 sru==2.6.0
+wordcloud
