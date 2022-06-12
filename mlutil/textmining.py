@@ -1,9 +1,30 @@
-import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.preprocessing import OneHotEncoder, MultiLabelBinarizer, LabelEncoder
+import re
 
+import nltk
+import pandas as pd
 from nltk.corpus import wordnet as wn
 from nltk.corpus import wordnet_ic
+from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.preprocessing import LabelEncoder, MultiLabelBinarizer, OneHotEncoder
+
+
+class LemmaTokenizer:
+    def __init__(self, token_pattern):
+        self.wnl = WordNetLemmatizer()
+        self.token_pattern = re.compile(token_pattern)
+
+    def __call__(self, articles):
+        return [self.wnl.lemmatize(t) for t in self.token_pattern.findall(articles)]
+
+
+class StemTokenizer:
+    def __init__(self, token_pattern, stemmer_cls=nltk.stem.PorterStemmer):
+        self.stemmer = stemmer_cls()
+        self.token_pattern = re.compile(token_pattern)
+
+    def __call__(self, articles):
+        return [self.stemmer.stem(t) for t in self.token_pattern.findall(articles)]
 
 
 def prepare_text_modeling_df(
