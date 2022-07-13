@@ -21,17 +21,6 @@ paragraph = (
 texts = [word, sentence, paragraph]
 
 
-@pytest.mark.slow
-def test_tfhub_embedding_vectorizer():
-
-    vectorizer = embeddings.TextEncoderVectorizer.from_tfhub_encoder('large')
-
-    text_vectors = vectorizer.transform(texts)
-
-    assert text_vectors.shape == (3, 512)
-    assert np.all(np.isclose(text_vectors[:, 0], np.array([0.04498473, 0.05568017, 0.03874939])))
-
-
 def test_word_embeddings_vectorizer_aggregation():
 
     keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')

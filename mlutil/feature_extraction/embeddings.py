@@ -9,8 +9,9 @@ import numpy as np
 import torch
 import tqdm
 import transformers
-from mlutil.feature_extraction.text import VectorizerMixin
 from sklearn import decomposition
+from sklearn.feature_extraction.text import _VectorizerMixin
+from abc import ABC
 
 
 def load_gensim_embedding_model(model_name):
@@ -69,7 +70,7 @@ class FastTextVectorizer:
         return self.transform(X, **kwargs)
 
 
-class EmbeddingVectorizer(VectorizerMixin):
+class EmbeddingVectorizer(_VectorizerMixin):
     """
     Base class for word/text embedding wrappers
     """
@@ -98,10 +99,11 @@ class EmbeddingVectorizer(VectorizerMixin):
         self.stop_words = stop_words
         self.ngram_range = (1, 1)
         self.analyzer = analyzer
+        """I admit this is pretty silly but unfortunately build analyzer requires this to be set..."""
+        self.analyzer = self.build_analyzer()
 
     def transform(self, X, **kwargs):
-        analyzer = self.build_analyzer()
-        analyzed_docs = [" ".join(analyzer(doc)) for doc in X]
+        analyzed_docs = [" ".join(self.analyzer(doc)) for doc in X]
         return self._embed_texts(analyzed_docs, **kwargs)
 
     def fit(self, X, y=None):
@@ -112,7 +114,8 @@ class EmbeddingVectorizer(VectorizerMixin):
         return self.transform(X, **kwargs)
 
     def _embed_texts(self, texts, **kwargs):
-        raise NotImplementedError()
+        """implementation of embedding"""
+        raise NotImplementedError
 
 
 class Doc2Vectorizer(EmbeddingVectorizer):
@@ -146,75 +149,6 @@ class Doc2Vectorizer(EmbeddingVectorizer):
 
     def _embed_texts(self, texts, **kwargs):
         return np.row_stack([self.doc2vec_model.infer_vector(t.split()) for t in texts])
-
-
-class TextEncoderVectorizer(EmbeddingVectorizer):
-    """
-    Wrapper for Tensorflow Hub Universal Sentence Encoder
-    """
-
-    def __init__(
-        self,
-        text_encoder,
-        input="content",
-        encoding="utf-8",
-        decode_error="strict",
-        strip_accents=None,
-        lowercase=False,
-        preprocessor=None,
-        tokenizer=None,
-        stop_words=None,
-        token_pattern=r"(?u)\b\w+\b",
-        analyzer="word",
-    ):
-        self.text_encoder = text_encoder
-        self.input = input
-        self.encoding = encoding
-        self.decode_error = decode_error
-        self.strip_accents = strip_accents
-        self.preprocessor = preprocessor
-        self.tokenizer = tokenizer
-        self.analyzer = analyzer
-        self.lowercase = lowercase
-        self.token_pattern = token_pattern
-        self.stop_words = stop_words
-        self.ngram_range = (1, 1)
-
-    def _embed_texts(self, texts, batch_size=256, **kwargs):
-        texts_chunked = TextEncoderVectorizer.iter_chunks(texts, chunk_size=batch_size)
-        return np.vstack(
-            [self.text_encoder(text_chunk) for text_chunk in texts_chunked]
-        )
-
-    @staticmethod
-    def from_tfhub_encoder(tfhub_encoder="large", **kwargs):
-        if type(tfhub_encoder) is str:
-            if os.path.exists(tfhub_encoder):
-                encoder = get_tfhub_encoder(tfhub_encoder)
-            elif tfhub_encoder == "small":
-                url = "https://tfhub.dev/google/universal-sentence-encoder/2"
-                encoder = get_tfhub_encoder(url)
-            elif tfhub_encoder == "large":
-                url = "https://tfhub.dev/google/universal-sentence-encoder-large/3"
-                encoder = get_tfhub_encoder(url)
-            else:
-                raise ValueError("Invalid TFHub encoder name or URL")
-        elif type(tfhub_encoder) is hub.Module:
-            encoder = tfhub_encoder
-        else:
-            raise ValueError("Invalid TFHub encoder")
-        return TextEncoderVectorizer(encoder, **kwargs)
-
-    @staticmethod
-    def iter_chunks(sequence, chunk_size):
-        res = []
-        for item in sequence:
-            res.append(item)
-            if len(res) >= chunk_size:
-                yield res
-                res = []
-        if res:
-            yield res
 
 
 class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
@@ -302,42 +236,16 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
     also see 'A Critique of the Smooth Inverse Frequency Sentence Embeddings'
     """
 
-    def __init__(
-        self,
-        word_embeddings,
-        component_analyzer=None,
-        average_embeddings=True,
-        input="content",
-        encoding="utf-8",
-        decode_error="strict",
-        strip_accents=None,
-        lowercase=True,
-        preprocessor=None,
-        tokenizer=None,
-        stop_words=None,
-        token_pattern=r"(?u)\b\w+\b",
-        analyzer="word",
-    ):
-        self.component_analyzer = (
-            component_analyzer
-            if not component_analyzer is None
-            else decomposition.TruncatedSVD(n_components=1)
-        )
+    def __init__(self, word_embeddings, component_analyzer=None, **kwargs):
         self.word_embeddings = word_embeddings
         self.average_embeddings = (True,)
-        self.input = input
-        self.encoding = encoding
-        self.decode_error = decode_error
-        self.strip_accents = strip_accents
-        self.preprocessor = preprocessor
-        self.tokenizer = tokenizer
-        self.analyzer = analyzer
-        self.lowercase = lowercase
-        self.token_pattern = token_pattern
-        self.stop_words = stop_words
-        self.ngram_range = (1, 1)
         self.dimensionality_ = _get_dimensionality(word_embeddings)
-        self.analyzer = analyzer
+        self.component_analyzer = (
+            component_analyzer
+            if component_analyzer is not None
+            else decomposition.TruncatedSVD(n_components=1)
+        )
+        super(EmbeddingVectorizer, self).__init__(**kwargs)
 
     def fit(self, texts, **kwargs):
         vectors = self._embed_texts(texts)
@@ -387,14 +295,14 @@ class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
     """
 
     def __init__(self, count_vectorizer, a=0.01, **kwargs):
-        PCREmbeddingVectorizer.__init__(self, **kwargs)
         self.count_vectorizer = count_vectorizer
         self.a = a
+        PCREmbeddingVectorizer.__init__(self, **kwargs)
 
-    def fit(self, a=None):
+    def fit(self, texts, a=None):
         if not hasattr(self.count_vectorizer, "vocabulary_"):
             self.count_vectorizer.fit(texts)
-        vectors = self._embed_texts(texts, a=a)
+        vectors = self._embed_texts(texts)
         self.component_analyzer.fit(vectors)
 
     def _embed_text(self, text):
@@ -410,8 +318,7 @@ class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
         )
         return (word_vectors * smoothed_word_frequencies).sum(axis=0)
 
-    @classmethod
-    def _get_smoothed_inverse_word_frequencies(cls, words, count_vectorizer, eps=1e-8):
+    def _get_smoothed_inverse_word_frequencies(self, words, count_vectorizer, eps=1e-8):
         word_counts = count_vectorizer.transform(words).sum(axis=1)
         word_probabilities = 1.0 / (np.asarray(word_counts) + eps)
         return self.a / (self.a + word_probabilities)
@@ -434,9 +341,9 @@ try:
         def fit(self, *args, **kwargs):
             pass
 
-        def transform(self, X):
-            return self.model.encode(X.values)
+        def transform(self, X, **kwargs):
+            return self.model.encode(list(X), **kwargs)
 
 
-except ImportError as e:
+except ImportError:
     logging.warning("sentence_transformers not found, cannot import SBERTModelWrapper")
