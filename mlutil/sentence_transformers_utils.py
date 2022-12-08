@@ -5,8 +5,8 @@ import re
 import string
 from typing import Dict, Iterable, List, Tuple, Union, Callable
 
-from github_search import python_tokens
 from sentence_transformers.models import tokenizer
+import pickle
 
 
 def split_whitespace(s):
@@ -90,6 +90,8 @@ class CustomTokenizer(tokenizer.WordTokenizer):
                 },
                 fOut,
             )
+        with open(os.path.join(output_path, "tokenize_fn.pkl"), "wb") as f:
+            pickle.dump(self.tokenize_fn, f)
 
     @staticmethod
     def load(input_path: str):
@@ -97,5 +99,8 @@ class CustomTokenizer(tokenizer.WordTokenizer):
             os.path.join(input_path, "whitespacetokenizer_config.json"), "r"
         ) as fIn:
             config = json.load(fIn)
+
+        with open(os.path.join(input_path, "tokenize_fn.pkl"), "rb") as f:
+            config["tokenize_fn"] = pickle.load(f)
 
         return CustomTokenizer(**config)
