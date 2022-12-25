@@ -46,7 +46,7 @@ class TorchFeatureExtractor:
     def process_img(self, img: Union[np.ndarray, Image.Image]):
         if type(img) is np.ndarray:
             if img.dtype is not np.dtype("uint8"):
-                img = (img * 255).astype('uint8')
+                img = (img * 255).astype("uint8")
             img = Image.fromarray(img)
         torch_img = self.torch_image_transform(img)
         return self.maybe_to_cuda(torch_img.unsqueeze(0))

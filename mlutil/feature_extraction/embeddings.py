@@ -117,6 +117,10 @@ class EmbeddingVectorizer(_VectorizerMixin):
         """implementation of embedding"""
         raise NotImplementedError
 
+    @classmethod
+    def is_in_vocab(self, elem, keyed_vectors):
+        return elem in keyed_vectors.key_to_index.keys()
+
 
 class Doc2Vectorizer(EmbeddingVectorizer):
     def __init__(
@@ -166,7 +170,7 @@ class AverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
         embeddings = [
             self.word_embeddings[w]
             for w in text.split()
-            if self.word_embeddings.wv.vocab.get(w) is not None
+            if self.is_in_vocab(w, self.word_embeddings)
         ]
         if len(embeddings) > 0:
             if self.average_embeddings:
@@ -205,7 +209,7 @@ class WeightedAverageWordEmbeddingsVectorizer(EmbeddingVectorizer):
         words = [
             w
             for w in text.split()
-            if self.word_embeddings.wv.vocab.get(w) and w in self.weights.index
+            if self.is_in_vocab(w, self.word_embeddings) and w in self.weights.index
         ]
         embeddings = [self.word_embeddings[w] for w in words]
         if len(embeddings) > 0:
@@ -261,7 +265,7 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
         embeddings = [
             self.word_embeddings[w]
             for w in text.split()
-            if self.word_embeddings.vocab.get(w) is not None
+            if self.is_in_vocab(w, self.word_embeddings)
         ]
         if len(embeddings) > 0:
             if self.average_embeddings:
@@ -289,43 +293,8 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
             return default
 
 
-class SIFEmbeddingVectorizer(PCREmbeddingVectorizer):
-    """
-    sentence embedding by Smooth Inverse Frequency weighting scheme from 'A Simple but Tough-to-Beat Baseline for Sentence Embeddings'
-    """
-
-    def __init__(self, count_vectorizer, a=0.01, **kwargs):
-        self.count_vectorizer = count_vectorizer
-        self.a = a
-        PCREmbeddingVectorizer.__init__(self, **kwargs)
-
-    def fit(self, texts, a=None):
-        if not hasattr(self.count_vectorizer, "vocabulary_"):
-            self.count_vectorizer.fit(texts)
-        vectors = self._embed_texts(texts)
-        self.component_analyzer.fit(vectors)
-
-    def _embed_text(self, text):
-        words = self.analyzer(text)
-        filtered_words = [
-            word for word in words if word in self.word_embeddings.wv.vocab.keys()
-        ]
-        word_vectors = self._get_vectors_or_default(
-            self.word_embeddings, filtered_words
-        )
-        smoothed_word_frequencies = self._get_smoothed_inverse_word_frequencies(
-            filtered_words, self.count_vectorizer
-        )
-        return (word_vectors * smoothed_word_frequencies).sum(axis=0)
-
-    def _get_smoothed_inverse_word_frequencies(self, words, count_vectorizer, eps=1e-8):
-        word_counts = count_vectorizer.transform(words).sum(axis=1)
-        word_probabilities = 1.0 / (np.asarray(word_counts) + eps)
-        return self.a / (self.a + word_probabilities)
-
-
 def _get_dimensionality(word_embeddings):
-    example_key = list(itertools.islice(word_embeddings.wv.vocab, 1))[0]
+    example_key = list(itertools.islice(word_embeddings.key_to_index.keys(), 1))[0]
     vector = word_embeddings[example_key]
     return vector.shape[0]
 
@@ -343,7 +312,6 @@ try:
 
         def transform(self, X, **kwargs):
             return self.model.encode(list(X), **kwargs)
-
 
 except ImportError:
     logging.warning("sentence_transformers not found, cannot import SBERTModelWrapper")

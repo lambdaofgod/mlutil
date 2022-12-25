@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 def display_img_vector(img_vector, cmap="gray"):
     vector_size = img_vector.shape[0]
     img_size = int(np.sqrt(vector_size))
-    assert img_size ** 2 == vector_size
+    assert img_size**2 == vector_size
     img = img_vector.reshape(img_size, img_size)
     plt.imshow(img, cmap=cmap)
 

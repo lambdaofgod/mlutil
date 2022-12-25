@@ -1,1 +1,1 @@
-from .SentenceRNN import SentenceRNN 
+from .SentenceRNN import SentenceRNN

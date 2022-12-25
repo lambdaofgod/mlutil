@@ -47,14 +47,3 @@ def test_pcr_word_embeddings_vectorizer():
     vectorizer = embeddings.PCREmbeddingVectorizer(keyed_vectors)
     text_vectors = vectorizer.fit_transform(texts)
     assert text_vectors.shape == (3, 50)
-
-
-def test_sif_word_embeddings_vectorizer():
-
-    keyed_vectors = load_gensim_embedding_model('glove-wiki-gigaword-50')
-    cvec = CountVectorizer()
-    cvec.fit(paragraph.split('\n'))
-    vectorizer = embeddings.SIFEmbeddingVectorizer(word_embeddings=keyed_vectors, count_vectorizer=cvec)
-
-    text_vectors = vectorizer.fit_transform(texts)
-    assert text_vectors.shape == (3, 50)
