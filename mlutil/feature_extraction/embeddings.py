@@ -249,7 +249,7 @@ class PCREmbeddingVectorizer(EmbeddingVectorizer):
             if component_analyzer is not None
             else decomposition.TruncatedSVD(n_components=1)
         )
-        super(EmbeddingVectorizer, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def fit(self, texts, **kwargs):
         vectors = self._embed_texts(texts)

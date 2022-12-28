@@ -16,7 +16,11 @@ def tokenize_camelcase(identifier):
     return [m.group(0) for m in matches]
 
 
-def tokenize_single_word(identifier, lowercase=False):
+def tokenize_path(identifier):
+    return identifier.split("/")
+
+
+def tokenize_single_word(identifier):
     if "_" in identifier:
         tokens = tokenize_snakecase(identifier)
     else:
@@ -24,9 +28,15 @@ def tokenize_single_word(identifier, lowercase=False):
     return [t.lower() for t in tokens]
 
 
-def tokenize_python_code(code_text):
-    """tokenize each word in code_text as python token"""
-    toks = code_text.split()
+def tokenize_python_code(code_text, lowercase=True):
+    """tokenize each word in code_text as python token and split paths"""
+    toks = [
+        tok
+        for maybe_path_tok in code_text.split()
+        for tok in tokenize_path(maybe_path_tok)
+    ]
     return [
-        tok for raw_tok in code_text.split() for tok in tokenize_single_word(raw_tok)
+        tok.lower() if lowercase else tok
+        for raw_tok in toks
+        for tok in tokenize_single_word(raw_tok)
     ]
