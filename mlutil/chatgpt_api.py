@@ -3,8 +3,9 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional
 import json
 import os
+import logging
 
-from pathlib import Path
+from pathlib import Path as P
 import datetime
 
 
@@ -20,7 +21,8 @@ class ChatGPTClient:
         self,
         api_key_path: Optional[str],
         model_name: str = "gpt-3.5-turbo",
-        logger=lambda s: None,
+        logger_args=LoggingArgs(),
+        logger=None,
     ):
         self.model_name = model_name
         if api_key_path is None:
@@ -29,9 +31,13 @@ class ChatGPTClient:
                 api_key is not None
             ), "no api key path specified, failed loading api key from var"
         else:
-            api_key = open(api_key_path).read().strip()
+            with open(P(api_key_path).expanduser()) as key_file:
+                api_key = key_file.read().strip()
         openai.api_key = api_key
-        self.logger = logger
+        if logger is None:
+            self.logger = self.setup_info_logger(logger_args)
+        else:
+            self.logger = logger
 
     def get_chatgpt_response_from_text(self, text, **kwargs):
         messages = [{"role": "user", "content": text}]
@@ -73,11 +79,11 @@ class ChatGPTClient:
         self.logger(json.dumps(completion))
         return completion["choices"][0]["message"]["content"]
 
-    def setup_default_info_logger(self, args: LoggingArgs):
-        log_files_prefix = self.model_name
-        file_suffix = datetime.datetime.now().strftime()
-        log_path = (
-            Path(logging_dir) / f"{log_files_prefix}/{date_format}.txt"
-        ).expanduser()
+    def setup_info_logger(self, args: LoggingArgs):
+        file_prefix = self.model_name
+        file_suffix = datetime.datetime.now().strftime(args.date_format)
+        log_root = log_path = P(args.logging_dir).expanduser() / file_prefix
+        log_root.mkdir(exist_ok=True, parents=True)
+        log_path = log_root / f"{file_suffix}.txt"
         logging.basicConfig(filename=log_path, level="INFO")
         return logging.info
