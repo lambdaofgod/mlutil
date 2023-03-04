@@ -10,3 +10,4 @@ stop-words
 sru==2.6.0
 wordcloud
 ranky==0.3.2
+openai
