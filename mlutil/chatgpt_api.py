@@ -4,9 +4,25 @@ from typing import List, Dict, Optional
 import json
 import os
 
+from pathlib import Path
+import datetime
+
+
+@dataclass
+class LoggingArgs:
+
+    logging_dir = "~/.chatgpt_logs"
+    date_format = "%y-%m-%d-%a-%H-%p"
+
 
 class ChatGPTClient:
-    def __init__(self, api_key_path: Optional[str], logger=lambda s: None):
+    def __init__(
+        self,
+        api_key_path: Optional[str],
+        model_name: str = "gpt-3.5-turbo",
+        logger=lambda s: None,
+    ):
+        self.model_name = model_name
         if api_key_path is None:
             api_key = os.getenv("OPENAI_API_KEY")
             assert (
@@ -27,7 +43,6 @@ class ChatGPTClient:
         self,
         messages: List[Dict[str, str]],
         max_tokens: int = 128,
-        model: str = "gpt-3.5-turbo",
         # sampling temperature
         temperature: float = 1,
         # nucleus sampling arg
@@ -44,7 +59,7 @@ class ChatGPTClient:
     ):
         self.logger(json.dumps(messages))
         completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model=self.model_name,
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -57,3 +72,12 @@ class ChatGPTClient:
         )
         self.logger(json.dumps(completion))
         return completion["choices"][0]["message"]["content"]
+
+    def setup_default_info_logger(self, args: LoggingArgs):
+        log_files_prefix = self.model_name
+        file_suffix = datetime.datetime.now().strftime()
+        log_path = (
+            Path(logging_dir) / f"{log_files_prefix}/{date_format}.txt"
+        ).expanduser()
+        logging.basicConfig(filename=log_path, level="INFO")
+        return logging.info
