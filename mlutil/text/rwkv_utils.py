@@ -84,15 +84,15 @@ class RWKVPromptifyModel(BaseModel):
     pipeline: RWKVPipelineWrapper
     alpha_frequency: float = Field(default=0.2)
     alpha_presence: float = Field(default=0.2)
-    top_k: float = Field(default=0)
+    top_k: float = Field(default=50)
 
     def run(
         self,
         prompts: List[str],
         suffix: Optional[str] = None,
-        max_tokens: Optional[int] = None,
+        max_tokens: int = 50,
         temperature: float = 1.0,
-        top_p: float = 0.85,
+        top_p: float = 1.0,
         stop: Union[str, Iterable[str], None] = None,
     ):
         assert len(prompts) == 1
@@ -105,4 +105,6 @@ class RWKVPromptifyModel(BaseModel):
             alpha_presence=self.alpha_presence,
             alpha_frequency=self.alpha_frequency,
         )
-        return self.pipeline.generate(context=prompt, token_count=max_tokens, args=args)
+        return [
+            self.pipeline.generate(context=prompt, token_count=max_tokens, args=args)
+        ]
