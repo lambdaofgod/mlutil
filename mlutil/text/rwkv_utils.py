@@ -20,6 +20,7 @@ class RWKVGenerationArgs(BaseModel):
     alpha_presence: float = Field(default=0.1)
     token_ban: List[str] = Field(default_factory=lambda: [0])
     token_stop: List[str] = Field(default_factory=list)
+    chunk_len: int = Field(default=256)
 
 
 class RWKVStrategy(BaseModel):
