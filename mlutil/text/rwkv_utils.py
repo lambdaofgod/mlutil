@@ -51,9 +51,16 @@ class RWKVPipelineWrapper(BaseModel):
         dtype="fp16",
         rwkv_strategy_str=None,
     ):
-        model_path = Path(model_path)
-        if tokenizer_path is None:
+        model_path = Path(model_path).expanduser()
+        is_dir = not "pth" in str(model_path)
+        if is_dir:
+            pth_files = list(model_path.glob("*.pth"))
+            assert len(pth_files) == 1
+            model_path = pth_files[0]
             tokenizer_path = Path(f"{model_path.parent}/20B_tokenizer.json")
+        if tokenizer_path is None:
+            dir_path = model_path if is_dir else model_path.parent
+            tokenizer_path = Path(f"{dir_path}/20B_tokenizer.json")
         rwkv_strategy = RWKVStrategy.from_device_and_dtype(
             device, dtype
         ).maybe_override_with_string(rwkv_strategy_str)
