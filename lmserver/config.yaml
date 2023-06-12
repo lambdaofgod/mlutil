@@ -1,0 +1,4 @@
+model_name_or_path: ~/models/rwkv-4-raven-7b-hf
+device: 0
+torch_dype_name: float16
+load_in_8bit: false

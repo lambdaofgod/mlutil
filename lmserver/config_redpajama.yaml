@@ -1,0 +1,5 @@
+model_name_or_path: togethercomputer/RedPajama-INCITE-7B-Chat
+device: 0
+torch_dype_name: float16
+prompt_template: "<human>: {}\n<bot>:"
+load_in_8bit: true
