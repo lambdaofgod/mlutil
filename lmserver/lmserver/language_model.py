@@ -39,7 +39,7 @@ class ModelConfig(BaseModel):
     model_name_or_path: str
     device: int = Field(default=0)
     torch_dtype_name: str = Field(default="float16")
-    prompt_template: Optional[str] = None
+    prompt_template: Optional[str] = Field(default=None)
     load_in_8bit: bool = Field(default=False)
 
     @property
@@ -50,13 +50,21 @@ class ModelConfig(BaseModel):
             return torch.float32
 
     @property
-    def model_id(self):
+    def loadable_model_path(self):
         model_name_or_path = self.model_name_or_path
         maybe_path = P(model_name_or_path).expanduser()
         if maybe_path.exists():
-            return str(maybe_path.expanduser())
+            return str(maybe_path)
         else:
             return model_name_or_path
+
+    @property
+    def display_model_name(self):
+        maybe_path = P(self.model_name_or_path)
+        if maybe_path.exists():
+            return maybe_path.name
+        else:
+            return str(maybe_path)
 
 
 class HuggingfaceLanguageModel(BaseModel, LanguageModel):
@@ -64,20 +72,19 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
     prompt_template: Optional[str] = None
     model_name: str
 
-    @timed
     @staticmethod
     def load(config: ModelConfig):
-        logging.info(f"Loading model {config.model_id}")
+        logging.info(f"Loading model {config.display_model_name}")
         m = AutoModelForCausalLM.from_pretrained(
-            config.model_id,
+            config.loadable_model_path,
             torch_dtype=config.torch_dtype,
             load_in_8bit=config.load_in_8bit,
             device_map="auto" if config.device == 0 else None,
         )
         logging.info(f"loaded model")
-        tokenizer = AutoTokenizer.from_pretrained(config.model_id)
+        tokenizer = AutoTokenizer.from_pretrained(config.loadable_model_path)
         return HuggingfaceLanguageModel(
-            model_name=config.model_name_or_path.split("/")[-1],
+            model_name=config.display_model_name,
             model=pipeline("text-generation", model=m, tokenizer=tokenizer),
             prompt_template=config.prompt_template,
         )
