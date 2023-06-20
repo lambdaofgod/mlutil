@@ -1,6 +1,8 @@
-from typing import Optional, Union, List, Dict
-from pydantic import BaseModel, Field
 import abc
+from typing import Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field
+
 from lmserver.sampling_parameters import SamplingParameters
 
 
@@ -16,7 +18,11 @@ class GenerationRequest(BaseModel):
     return_full_text: bool = False
 
 
+class ReLLMGenerationRequest(GenerationRequest):
+    pattern: str
+
+
 class GenerationResult(BaseModel):
-    text: Union[str, List[str]]
+    texts: List[str]
     output_tokens: int
     truncated_prompt: bool = False

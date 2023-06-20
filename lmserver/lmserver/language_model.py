@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 
-import logging
-from typing import Optional, Union, List, Dict
-from pydantic import BaseModel, Field
-from transformers import pipeline, pipelines, AutoTokenizer, AutoModelForCausalLM
 import abc
-from lmserver.models import SamplingParameters, GenerationRequest, GenerationResult
-import torch
-from pathlib import Path as P
+import logging
 import time
 from functools import wraps
+from pathlib import Path as P
+from typing import Dict, List, Optional, Union
+
+import regex
+import rellm
+import torch
+from pydantic import BaseModel, Field
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, pipelines
 from transformers.pipelines import TextGenerationPipeline
+
+from lmserver.models import (
+    GenerationRequest,
+    GenerationResult,
+    ReLLMGenerationRequest,
+    SamplingParameters,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -90,10 +99,42 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
         )
 
     def generate(self, generation_request: GenerationRequest) -> GenerationResult:
-        if self.prompt_template is not None:
-            prompt = self.prompt_template.format(generation_request.prompt)
-        else:
-            prompt = generation_request.prompt
+        prompt = self._get_prompt(self.prompt_template, generation_request.prompt)
+        result = GenerationResult(
+            texts=self._generate_hf_texts(prompt, generation_request),
+            output_tokens=generation_request.max_new_tokens,
+            truncated_prompt=False,
+        )
+        return result
+
+    def rellm_generate(
+        self, generation_request: ReLLMGenerationRequest
+    ) -> GenerationResult:
+        prompt = self._get_prompt(self.prompt_template, generation_request.prompt)
+        result = GenerationResult(
+            texts=[self._generate_rellm_text(prompt, generation_request)],
+            output_tokens=generation_request.max_new_tokens,
+            truncated_prompt=False,
+        )
+        return result
+
+    def _generate_rellm_text(
+        self, prompt, generation_request: ReLLMGenerationRequest
+    ) -> str:
+        pattern = regex.compile(generation_request.pattern)
+        text_generated = rellm.complete_re(
+            prompt,
+            pattern=pattern,
+            model=self.model.model,
+            tokenizer=self.model.tokenizer,
+            max_new_tokens=generation_request.max_new_tokens,
+            do_sample=generation_request.do_sample,
+        )
+        return text_generated
+
+    def _generate_hf_texts(
+        self, prompt, generation_request: GenerationRequest
+    ) -> List[str]:
         text_generated = self.model(
             prompt,
             max_new_tokens=generation_request.max_new_tokens,
@@ -102,15 +143,14 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
             return_full_text=generation_request.return_full_text,
             generation_kwargs=dict(generation_request.sampling_parameters),
         )
-        text = [x["generated_text"] for x in text_generated]
-        if generation_request.n == 1:
-            text = text[0]
-        result = GenerationResult(
-            text=text,
-            output_tokens=generation_request.max_new_tokens,
-            truncated_prompt=False,
-        )
-        return result
+        texts = [x["generated_text"] for x in text_generated]
+        return texts
+
+    def _get_prompt(self, prompt_template, prompt_text):
+        if self.prompt_template is not None:
+            return prompt_template.format(prompt_text)
+        else:
+            return prompt_text
 
     class Config:
         arbitrary_types_allowed = True

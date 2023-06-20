@@ -1,12 +1,15 @@
-from fastapi import FastAPI
-from typing import Optional, Union, List, Dict
-from pydantic import BaseSettings, BaseModel
-from lmserver.models import GenerationRequest, GenerationResult
-from lmserver.language_model import HuggingfaceLanguageModel, ModelConfig
-import yaml
-import uvicorn
 import logging
+from typing import Dict, List, Optional, Union
+
 import fire
+import rellm
+import uvicorn
+import yaml
+from fastapi import FastAPI
+from pydantic import BaseModel, BaseSettings
+
+from lmserver.language_model import HuggingfaceLanguageModel, ModelConfig
+from lmserver.models import GenerationRequest, GenerationResult, ReLLMGenerationRequest
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI()
@@ -17,6 +20,16 @@ def generate(generation_request: GenerationRequest):
     lm: HuggingfaceLanguageModel = app.state.lm
     logging.info(f"got request: {generation_request}")
     result = lm.generate(generation_request)
+    logging.info(f"model returned result {result}")
+    return result
+
+
+@app.post("/rellm_generate", response_model=GenerationResult)
+def generate(generation_request: ReLLMGenerationRequest):
+    lm: HuggingfaceLanguageModel = app.state.lm
+    logging.info(f"got request: {generation_request}")
+    result = lm.rellm_generate(generation_request)
+
     logging.info(f"model returned result {result}")
     return result
 
