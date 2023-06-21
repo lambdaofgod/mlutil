@@ -1,0 +1,6 @@
+model_name_or_path: EleutherAI/gpt-j-6B
+device: 0
+torch_dype_name: float16
+load_in_8bit: false
+peft_config:
+  repo_id: kil3r/gptj6b-lora-owca

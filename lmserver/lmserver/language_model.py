@@ -2,6 +2,7 @@
 
 import abc
 import logging
+import os
 import time
 from functools import wraps
 from pathlib import Path as P
@@ -20,6 +21,7 @@ from lmserver.models import (
     ReLLMGenerationRequest,
     SamplingParameters,
 )
+from lmserver.peft_utils import HFPeftConfig, load_peft_model
 
 logging.basicConfig(level=logging.INFO)
 
@@ -50,6 +52,7 @@ class ModelConfig(BaseModel):
     torch_dtype_name: str = Field(default="float16")
     prompt_template: Optional[str] = Field(default=None)
     load_in_8bit: bool = Field(default=False)
+    peft_config: Optional[Union[HFPeftConfig]] = Field(default=None)
 
     @property
     def torch_dtype(self):
@@ -81,22 +84,31 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
     prompt_template: Optional[str] = None
     model_name: str
 
-    @staticmethod
-    def load(config: ModelConfig):
+    @classmethod
+    def load(cls, config: ModelConfig):
         logging.info(f"Loading model {config.display_model_name}")
-        m = AutoModelForCausalLM.from_pretrained(
+
+        model = cls._load_model(config)
+
+        logging.info(f"loaded model")
+        tokenizer = AutoTokenizer.from_pretrained(config.loadable_model_path)
+        return HuggingfaceLanguageModel(
+            model_name=config.display_model_name,
+            model=pipeline("text-generation", model=model, tokenizer=tokenizer),
+            prompt_template=config.prompt_template,
+        )
+
+    @classmethod
+    def _load_model(cls, config: ModelConfig):
+        model = AutoModelForCausalLM.from_pretrained(
             config.loadable_model_path,
             torch_dtype=config.torch_dtype,
             load_in_8bit=config.load_in_8bit,
             device_map="auto" if config.device == 0 else None,
         )
-        logging.info(f"loaded model")
-        tokenizer = AutoTokenizer.from_pretrained(config.loadable_model_path)
-        return HuggingfaceLanguageModel(
-            model_name=config.display_model_name,
-            model=pipeline("text-generation", model=m, tokenizer=tokenizer),
-            prompt_template=config.prompt_template,
-        )
+        if config.peft_config is not None:
+            model = load_peft_model(model, config.peft_config)
+        return model
 
     def generate(self, generation_request: GenerationRequest) -> GenerationResult:
         prompt = self._get_prompt(self.prompt_template, generation_request.prompt)
