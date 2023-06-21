@@ -21,7 +21,7 @@ from lmserver.models import (
     ReLLMGenerationRequest,
     SamplingParameters,
 )
-from lmserver.peft_utils import HFPeftConfig, load_peft_model
+from lmserver.peft_utils import HubPeftConfig, LocalPeftConfig, load_peft_model
 
 logging.basicConfig(level=logging.INFO)
 
@@ -52,7 +52,7 @@ class ModelConfig(BaseModel):
     torch_dtype_name: str = Field(default="float16")
     prompt_template: Optional[str] = Field(default=None)
     load_in_8bit: bool = Field(default=False)
-    peft_config: Optional[Union[HFPeftConfig]] = Field(default=None)
+    peft_config: Optional[Union[LocalPeftConfig, HubPeftConfig]] = Field(default=None)
 
     @property
     def torch_dtype(self):

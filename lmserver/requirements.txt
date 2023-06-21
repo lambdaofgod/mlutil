@@ -1,3 +1,7 @@
 pydantic
 rellm
 regex
+huggingface-hub
+fire
+fastapi
+uvicorn

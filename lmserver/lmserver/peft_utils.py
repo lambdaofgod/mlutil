@@ -15,7 +15,6 @@ class HubPeftConfig(BaseModel):
     adapter_model_filename: str = Field(default="adapter_model.bin")
     adapter_config_filename: str = Field(default="adapter_config.json")
 
-    @classmethod
     def get_downloaded_peft_config(self) -> LocalPeftConfig:
         """
         downloads peft adapter from huggingface and returns config that can be used to load it
@@ -27,10 +26,7 @@ class HubPeftConfig(BaseModel):
         )
 
 
-HFPeftConfig = Union[LocalPeftConfig, HubPeftConfig]
-
-
-def load_peft_model(base_model, peft_config: HFPeftConfig):
+def load_peft_model(base_model, peft_config: Union[LocalPeftConfig, HubPeftConfig]):
     from peft import PeftModel
 
     if isinstance(peft_config, HubPeftConfig):
