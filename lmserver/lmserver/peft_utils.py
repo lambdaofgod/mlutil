@@ -6,8 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class LocalPeftConfig(BaseModel):
-    model_path: str
-    config_path: str
+    model_dir: str
 
 
 class HubPeftConfig(BaseModel):
@@ -22,7 +21,7 @@ class HubPeftConfig(BaseModel):
         local_model_path = hf_hub_download(self.repo_id, self.adapter_model_filename)
         local_config_path = hf_hub_download(self.repo_id, self.adapter_config_filename)
         return LocalPeftConfig(
-            model_path=local_model_path, config_path=local_config_path
+            model_dir=str(P(local_model_path).parent),
         )
 
 
@@ -34,4 +33,4 @@ def load_peft_model(base_model, peft_config: Union[LocalPeftConfig, HubPeftConfi
     else:
         local_peft_config = peft_config
 
-    return PeftModel.from_pretrained(base_model, local_peft_config.model_path)
+    return PeftModel.from_pretrained(base_model, local_peft_config.model_dir)
