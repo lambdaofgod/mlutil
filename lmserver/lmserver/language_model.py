@@ -140,7 +140,6 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
             model=self.model.model,
             tokenizer=self.model.tokenizer,
             max_new_tokens=generation_request.max_new_tokens,
-            do_sample=generation_request.do_sample,
         )
         return text_generated
 

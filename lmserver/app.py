@@ -7,12 +7,18 @@ import uvicorn
 import yaml
 from fastapi import FastAPI
 from pydantic import BaseModel, BaseSettings
+from returns.maybe import Maybe
 
 from lmserver.language_model import HuggingfaceLanguageModel, ModelConfig
 from lmserver.models import GenerationRequest, GenerationResult, ReLLMGenerationRequest
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI()
+
+
+class AppConfig(BaseModel):
+    host: str = "0.0.0.0"
+    port: int = 8765
 
 
 @app.post("/generate", response_model=GenerationResult)
@@ -40,16 +46,26 @@ def info():
     return {"model_name": lm.model_name}
 
 
-def run_app(lm: HuggingfaceLanguageModel):
+def run_app(lm: HuggingfaceLanguageModel, app_config: AppConfig):
     app.state.lm = lm
-    uvicorn.run(app, port=8765)
+    uvicorn.run(app, port=app_config.port, host=app_config.host)
 
 
-def main(config_path: str = "config.yaml"):
-    with open(config_path) as config_file:
-        model_config = ModelConfig(**yaml.safe_load(config_file))
+def parse_config(cls, path: str):
+    with open(path) as config_file:
+        config_dict = yaml.safe_load(config_file)
+    return cls(**config_dict)
+
+
+def main(model_config_path: str = "config.yaml", app_config_path: Optional[str] = None):
+    model_config = parse_config(ModelConfig, model_config_path)
+    app_config = (
+        Maybe.from_optional(app_config_path)
+        .map(lambda p: parse_config(ModelConfig, p))
+        .value_or(AppConfig())
+    )
     lm = HuggingfaceLanguageModel.load(config=model_config)
-    run_app(lm)
+    run_app(lm, app_config)
 
 
 if __name__ == "__main__":
