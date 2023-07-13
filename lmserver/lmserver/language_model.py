@@ -140,6 +140,7 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
             model=self.model.model,
             tokenizer=self.model.tokenizer,
             max_new_tokens=generation_request.max_new_tokens,
+            min_length=generation_request.min_length,
         )
         return text_generated
 
@@ -148,7 +149,6 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
     ) -> List[str]:
         text_generated = self.model(
             prompt,
-            min_length=generation_request.min_length,
             max_new_tokens=generation_request.max_new_tokens,
             num_return_sequences=generation_request.n,
             do_sample=generation_request.do_sample,

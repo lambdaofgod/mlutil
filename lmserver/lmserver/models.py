@@ -21,6 +21,7 @@ class GenerationRequest(BaseModel):
 
 class ReLLMGenerationRequest(GenerationRequest):
     pattern: str
+    stop_after_match: bool = True
 
 
 class GenerationResult(BaseModel):
