@@ -5,3 +5,4 @@ huggingface-hub
 fire
 fastapi
 uvicorn
+returns

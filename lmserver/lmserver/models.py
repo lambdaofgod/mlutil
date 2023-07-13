@@ -8,6 +8,7 @@ from lmserver.sampling_parameters import SamplingParameters
 
 class GenerationRequest(BaseModel):
     prompt: str
+    min_length: int = Field(default=5)
     max_new_tokens: int = Field(default=20)
     n: Optional[int] = Field(default=1)
     max_length: int = Field(default=512)
