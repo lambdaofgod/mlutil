@@ -20,6 +20,8 @@ from lmserver.models import (
     GenerationResult,
     ReLLMGenerationRequest,
     SamplingParameters,
+    SingleGenerationResult,
+    TokenUsage,
 )
 from lmserver.peft_utils import HubPeftConfig, LocalPeftConfig, load_peft_model
 
@@ -110,25 +112,38 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
             model = load_peft_model(model, config.peft_config)
         return model
 
+    def _get_text_tokens(self, text):
+        return len(self.model.tokenizer.encode(text))
+
+    def _get_generation_result(
+        self, prompt, texts, truncated_prompt
+    ) -> GenerationResult:
+        prompt_tokens = self._get_text_tokens(prompt)
+        texts_completion_tokens = map(self._get_text_tokens, texts)
+        return [
+            SingleGenerationResult(
+                text=text,
+                usage=TokenUsage.with_total_tokens(completion_tokens, prompt_tokens),
+                truncated_prompt=truncated_prompt,
+            )
+            for text, completion_tokens in zip(texts, texts_completion_tokens)
+        ]
+
     def generate(self, generation_request: GenerationRequest) -> GenerationResult:
         prompt = self._get_prompt(self.prompt_template, generation_request.prompt)
-        result = GenerationResult(
-            texts=self._generate_hf_texts(prompt, generation_request),
-            output_tokens=generation_request.max_new_tokens,
-            truncated_prompt=False,
+        texts = self._generate_hf_texts(prompt, generation_request)
+        return self._get_generation_result(
+            generation_request.prompt, texts, generation_request.truncate_prompt
         )
-        return result
 
     def rellm_generate(
         self, generation_request: ReLLMGenerationRequest
     ) -> GenerationResult:
         prompt = self._get_prompt(self.prompt_template, generation_request.prompt)
-        result = GenerationResult(
-            texts=[self._generate_rellm_text(prompt, generation_request)],
-            output_tokens=generation_request.max_new_tokens,
-            truncated_prompt=False,
+        texts = [self._generate_rellm_text(prompt, generation_request)]
+        return self._get_generation_result(
+            generation_request.prompt, texts, generation_request.truncate_prompt
         )
-        return result
 
     def _generate_rellm_text(
         self, prompt, generation_request: ReLLMGenerationRequest
@@ -140,7 +155,6 @@ class HuggingfaceLanguageModel(BaseModel, LanguageModel):
             model=self.model.model,
             tokenizer=self.model.tokenizer,
             max_new_tokens=generation_request.max_new_tokens,
-            min_length=generation_request.min_length,
         )
         return text_generated
 
