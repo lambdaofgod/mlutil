@@ -6,7 +6,7 @@ import rellm
 import uvicorn
 import yaml
 from fastapi import FastAPI
-from pydantic import BaseModel, BaseSettings
+from pydantic import BaseModel
 from returns.maybe import Maybe
 
 from lmserver.language_model import HuggingfaceLanguageModel, ModelConfig
@@ -61,9 +61,11 @@ def main(model_config_path: str = "config.yaml", app_config_path: Optional[str] 
     model_config = parse_config(ModelConfig, model_config_path)
     app_config = (
         Maybe.from_optional(app_config_path)
-        .map(lambda p: parse_config(ModelConfig, p))
+        .map(lambda p: parse_config(AppConfig, p))
         .value_or(AppConfig())
     )
+    print(f"model config: {model_config}")
+    print(f"model config: {app_config}")
     lm = HuggingfaceLanguageModel.load(config=model_config)
     run_app(lm, app_config)
 
