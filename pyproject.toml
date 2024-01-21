@@ -18,8 +18,8 @@ stop-words = "^2018.7.23"
 sru = "2.6.0"
 wordcloud = "^1.9.2"
 ranky = "0.3.2"
-openai = "^0.27.0"
 returns = "^0.22.0"
+openai = "^1.9.0"
 
 [build-system]
 requires = ["poetry-core"]
